@@ -15,6 +15,7 @@ import { GalleryModule } from './modules/gallery/gallery.module'
 import { FormsModule } from './modules/forms/forms.module'
 import { ReportsModule } from './modules/reports/reports.module'
 import { HealthModule } from './modules/health/health.module'
+import { AdminModule } from './modules/admin/admin.module'
 
 @Module({
   imports: [
@@ -86,6 +87,7 @@ import { HealthModule } from './modules/health/health.module'
     FormsModule,
     ReportsModule,
     HealthModule,
+    AdminModule,
   ],
 })
 export class AppModule {}
