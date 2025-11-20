@@ -2,6 +2,8 @@
 
 Stack: NestJS + TypeORM + PostgreSQL / Azure SQL + Azure Blob Storage
 
+> Nota CI/CD: Este archivo se modificó para forzar un nuevo run del workflow GitHub Actions tras quitar el filtro de paths.
+
 ## Variables de entorno
 
 Crear archivo `.env` en la raíz del backend:
