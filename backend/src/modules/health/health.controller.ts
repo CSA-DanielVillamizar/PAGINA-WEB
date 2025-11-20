@@ -1,5 +1,6 @@
 import { Controller, Get } from '@nestjs/common'
 import { ApiOperation, ApiTags } from '@nestjs/swagger'
+import { HealthService } from './health.service'
 
 /**
  * Controlador de salud del servicio.
@@ -9,6 +10,7 @@ import { ApiOperation, ApiTags } from '@nestjs/swagger'
 @ApiTags('health')
 @Controller('health')
 export class HealthController {
+  constructor(private readonly healthService: HealthService) {}
   /**
    * Endpoint de verificación de estado.
    * Retorna información mínima para confirmar que el proceso está activo.
@@ -22,6 +24,23 @@ export class HealthController {
       service: 'lama-backend',
       timestamp: new Date().toISOString(),
       version: process.env.APP_VERSION || '1.0.0'
+    }
+  }
+
+  /**
+   * Endpoint de readiness.
+   * Verifica componentes críticos: conexión a base de datos y acceso a Key Vault.
+   * No expone valores sensibles, sólo estados.
+   * @returns Objeto con estado global y detalle de subsistemas.
+   */
+  @Get('ready')
+  @ApiOperation({ summary: 'Verificar preparación de dependencias (DB, Key Vault)' })
+  async getReadiness() {
+    const checks = await this.healthService.readinessChecks()
+    return {
+      status: checks.overall ? 'ready' : 'degraded',
+      timestamp: new Date().toISOString(),
+      ...checks
     }
   }
 }
