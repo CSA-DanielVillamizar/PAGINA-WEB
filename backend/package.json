@@ -10,7 +10,8 @@
     "start": "node dist/main.js",
     "start:dev": "nodemon --watch src --exec ts-node -r tsconfig-paths/register src/main.ts",
     "build": "tsc",
-    "test": "jest --passWithNoTests"
+    "test": "jest --passWithNoTests",
+    "migrate": "node dist/migrations-runner.js"
   },
   "dependencies": {
     "@azure/communication-email": "^1.0.0",

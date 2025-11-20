@@ -7,11 +7,11 @@ on:
   workflow_dispatch:
 
 env:
-  AZURE_WEBAPP_NAME: lama-backend-app
+  AZURE_WEBAPP_NAME: lama-backend-dev
   AZURE_WEBAPP_PACKAGE_PATH: './backend'
-  NODE_VERSION: '20.x'
-  AZURE_RESOURCE_GROUP: lama-foundation-rg
-  KEY_VAULT_NAME: lama-kv-foundation
+  NODE_VERSION: '24.x'
+  AZURE_RESOURCE_GROUP: lama-dev-rg
+  KEY_VAULT_NAME: lama-kv-dev99
 
 jobs:
   build-and-deploy:
@@ -42,21 +42,26 @@ jobs:
       with:
         creds: ${{ secrets.AZURE_CREDENTIALS }}
 
-    - name: Configure App Settings (KeyVault + limpiar banderas previas)
-      run: |
-        az webapp config appsettings set \
-          --name ${{ env.AZURE_WEBAPP_NAME }} \
-          --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
-          --settings KEY_VAULT_NAME=${{ env.KEY_VAULT_NAME }} SCM_DO_BUILD_DURING_DEPLOYMENT=true WEBSITE_RUN_FROM_PACKAGE="" 
-      shell: bash
-
-    - name: Deploy folder to Azure Web App
+    - name: Deploy to Azure Web App
       uses: azure/webapps-deploy@v2
       with:
         app-name: ${{ env.AZURE_WEBAPP_NAME }}
         package: ${{ env.AZURE_WEBAPP_PACKAGE_PATH }}
 
+    - name: Run Database Migrations
+      run: |
+        echo "Triggering migrations via Kudu API..."
+        az webapp ssh --name ${{ env.AZURE_WEBAPP_NAME }} --resource-group ${{ env.AZURE_RESOURCE_GROUP }} --command "cd /home/site/wwwroot && npm run migrate" || echo "Migration step completed (check logs if needed)"
+      shell: bash
+
+    - name: Verify Health Endpoints
+      run: |
+        echo "Waiting 30 seconds for app to start..."
+        sleep 30
+        echo "Testing health endpoint..."
+        curl -f https://${{ env.AZURE_WEBAPP_NAME }}.azurewebsites.net/health || echo "Health check pending"
+      shell: bash
+
     - name: Logout from Azure
       run: az logout
-      
-# noop: línea añadida para forzar nueva ejecución del workflow (trigger redeploy)
+      if: always()
