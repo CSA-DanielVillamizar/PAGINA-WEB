@@ -1,11 +1,15 @@
 import 'reflect-metadata'
 import { NestFactory } from '@nestjs/core'
 import { AppModule } from './app.module'
-import { ValidationPipe } from '@nestjs/common'
+import { ValidationPipe, Logger } from '@nestjs/common'
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger'
 
-async function bootstrap() {
-  const app = await NestFactory.create(AppModule)
+const logger = new Logger('Bootstrap')
+
+async function bootstrap(retry = 0) {
+  try {
+    const app = await NestFactory.create(AppModule, { bufferLogs: true })
+    app.useLogger(logger)
   
   // Global validation pipe
   app.useGlobalPipes(new ValidationPipe({ 
@@ -33,10 +37,21 @@ async function bootstrap() {
   const document = SwaggerModule.createDocument(app, config)
   SwaggerModule.setup('api/docs', app, document)
   
-  const port = process.env.PORT || 3000
-  await app.listen(port)
-  console.log(`Backend listening on http://localhost:${port}`)
-  console.log(`Swagger docs: http://localhost:${port}/api/docs`)
+    const port = process.env.PORT || 3000
+    await app.listen(port, '0.0.0.0')
+    logger.log(`Backend escuchando en puerto ${port}`)
+    logger.log(`Swagger docs disponibles en /api/docs`)
+  } catch (err) {
+    logger.error(`Error al iniciar la aplicación (intento ${retry + 1}): ${(err as Error).message}`)
+    if (retry < 4) {
+      const delayMs = 3000 * (retry + 1)
+      logger.warn(`Reintentando bootstrap en ${delayMs}ms...`)
+      await new Promise(res => setTimeout(res, delayMs))
+      return bootstrap(retry + 1)
+    }
+    logger.error('Falló el inicio después de múltiples intentos. Proceso abortado.')
+    process.exit(1)
+  }
 }
 
 bootstrap()
