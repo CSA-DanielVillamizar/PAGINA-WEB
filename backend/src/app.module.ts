@@ -26,21 +26,50 @@ import { HealthModule } from './modules/health/health.module'
       ? []
       : [
           TypeOrmModule.forRootAsync({
-            useFactory: () => ({
-              type: 'postgres',
-              host: process.env.DB_HOST || 'localhost',
-              port: parseInt(process.env.DB_PORT || '5432'),
-              username: process.env.DB_USER || 'user',
-              password: process.env.DB_PASS || 'pass',
-              database: process.env.DB_NAME || 'lama_db',
-              entities: [__dirname + '/**/*.entity{.ts,.js}'],
-              synchronize: false, // Desactivar en despliegues; usar migrations posteriormente
-              retryAttempts: 5,
-              retryDelay: 3000,
-              autoLoadEntities: true,
-              // SSL requerido para Azure PostgreSQL Flexible Server
-              ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false,
-            })
+            useFactory: () => {
+              // Diagnósticos de entorno antes de construir la config
+              const rawUser = process.env.DB_USER || 'user'
+              const rawPass = process.env.DB_PASS || 'pass'
+              const rawHost = process.env.DB_HOST || 'localhost'
+
+              // Flexible Server NO requiere el patrón usuario@servidor (ese era para Single Server).
+              // Si el usuario viene con sufijo, lo normalizamos.
+              const normalizedUser = rawUser.includes('@') ? rawUser.split('@')[0] : rawUser
+
+              // Detectar si la referencia de Key Vault no ha sido resuelta (contiene la sintaxis @Microsoft.KeyVault()).
+              const keyVaultUnresolved = /@Microsoft\.KeyVault\(/i.test(rawPass)
+
+              if (keyVaultUnresolved) {
+                // Advertencia: la referencia no fue sustituida aún. Esto hará fallar la conexión.
+                // No exponemos la contraseña, solo el estado.
+                // eslint-disable-next-line no-console
+                console.warn('[DB Diagnostics] La referencia de Key Vault para DB_PASS no se resolvió. Valor crudo presente. Revisar identidad y permisos RBAC.')
+              }
+
+              // eslint-disable-next-line no-console
+              console.log('[DB Diagnostics] Intentando conexión PostgreSQL', {
+                host: rawHost,
+                user: normalizedUser,
+                kvResolved: !keyVaultUnresolved,
+                prod: process.env.NODE_ENV === 'production'
+              })
+
+              return {
+                type: 'postgres',
+                host: rawHost,
+                port: parseInt(process.env.DB_PORT || '5432'),
+                username: normalizedUser,
+                password: rawPass,
+                database: process.env.DB_NAME || 'lama_db',
+                entities: [__dirname + '/**/*.entity{.ts,.js}'],
+                synchronize: false, // Desactivar en despliegues; usar migrations posteriormente
+                retryAttempts: 5,
+                retryDelay: 3000,
+                autoLoadEntities: true,
+                // SSL requerido para Azure PostgreSQL Flexible Server
+                ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false,
+              }
+            }
           })
         ]),
     AuthModule,
