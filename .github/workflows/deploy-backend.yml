@@ -12,6 +12,8 @@ env:
   AZURE_WEBAPP_NAME: lama-backend-app
   AZURE_WEBAPP_PACKAGE_PATH: './backend'
   NODE_VERSION: '20.x'
+  AZURE_RESOURCE_GROUP: lama-foundation-rg
+  KEY_VAULT_NAME: lama-kv-foundation
 
 jobs:
   build-and-deploy:
@@ -26,7 +28,6 @@ jobs:
       with:
         node-version: ${{ env.NODE_VERSION }}
         cache: 'npm'
-        cache-dependency-path: backend/package-lock.json
 
     - name: Install dependencies
       working-directory: ${{ env.AZURE_WEBAPP_PACKAGE_PATH }}
@@ -84,6 +85,14 @@ jobs:
       uses: azure/login@v1
       with:
         creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+    - name: Configure App Settings (KEY_VAULT_NAME)
+      run: |
+        az webapp config appsettings set \
+          --name ${{ env.AZURE_WEBAPP_NAME }} \
+          --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
+          --settings KEY_VAULT_NAME=${{ env.KEY_VAULT_NAME }}
+      shell: bash
 
     - name: Deploy to Azure Web App
       uses: azure/webapps-deploy@v2
