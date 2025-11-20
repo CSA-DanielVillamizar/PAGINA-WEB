@@ -14,6 +14,7 @@ import { SubscriptionsModule } from './modules/subscriptions/subscriptions.modul
 import { GalleryModule } from './modules/gallery/gallery.module'
 import { FormsModule } from './modules/forms/forms.module'
 import { ReportsModule } from './modules/reports/reports.module'
+import { HealthModule } from './modules/health/health.module'
 
 @Module({
   imports: [
@@ -43,6 +44,7 @@ import { ReportsModule } from './modules/reports/reports.module'
     GalleryModule,
     FormsModule,
     ReportsModule,
+    HealthModule,
   ],
 })
 export class AppModule {}
