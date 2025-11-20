@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "start": "ts-node -r tsconfig-paths/register src/main.ts",
+    "start": "node dist/main.js",
     "start:dev": "nodemon --watch src --exec ts-node -r tsconfig-paths/register src/main.ts",
     "build": "tsc",
     "test": "jest --passWithNoTests"
