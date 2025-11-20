@@ -37,7 +37,8 @@ async function bootstrap(retry = 0) {
   const document = SwaggerModule.createDocument(app, config)
   SwaggerModule.setup('api/docs', app, document)
   
-    const port = process.env.PORT || 3000
+  // Azure App Service suele requerir puerto 8080 si PORT no está definido
+  const port = process.env.PORT || '8080'
     await app.listen(port, '0.0.0.0')
     logger.log(`Backend escuchando en puerto ${port}`)
     logger.log(`Swagger docs disponibles en /api/docs`)

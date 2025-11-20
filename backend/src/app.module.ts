@@ -19,18 +19,28 @@ import { HealthModule } from './modules/health/health.module'
 @Module({
   imports: [
     ConfigModule.forRoot({ isGlobal: true }),
-    TypeOrmModule.forRootAsync({
-      useFactory: () => ({
-        type: 'postgres',
-        host: process.env.DB_HOST || 'localhost',
-        port: parseInt(process.env.DB_PORT || '5432'),
-        username: process.env.DB_USER || 'user',
-        password: process.env.DB_PASS || 'pass',
-        database: process.env.DB_NAME || 'lama_db',
-        entities: [__dirname + '/**/*.entity{.ts,.js}'],
-        synchronize: true
-      })
-    }),
+    // Configuración de TypeORM con tolerancia a fallos y reintentos.
+    // Si se establece DISABLE_DB=1 en las variables de entorno, se omite la conexión
+    // para permitir que la aplicación arranque y exponga endpoints básicos.
+    ...(process.env.DISABLE_DB === '1'
+      ? []
+      : [
+          TypeOrmModule.forRootAsync({
+            useFactory: () => ({
+              type: 'postgres',
+              host: process.env.DB_HOST || 'localhost',
+              port: parseInt(process.env.DB_PORT || '5432'),
+              username: process.env.DB_USER || 'user',
+              password: process.env.DB_PASS || 'pass',
+              database: process.env.DB_NAME || 'lama_db',
+              entities: [__dirname + '/**/*.entity{.ts,.js}'],
+              synchronize: false, // Desactivar en despliegues; usar migrations posteriormente
+              retryAttempts: 5,
+              retryDelay: 3000,
+              autoLoadEntities: true,
+            })
+          })
+        ]),
     AuthModule,
     UsersModule,
     RolesModule,
