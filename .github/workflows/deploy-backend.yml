@@ -102,3 +102,5 @@ jobs:
 
     - name: Logout from Azure
       run: az logout
+      
+# noop: línea añadida para forzar nueva ejecución del workflow (trigger redeploy)
