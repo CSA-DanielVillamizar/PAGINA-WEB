@@ -8,6 +8,7 @@
     },
   "scripts": {
     "start": "node dist/main.js",
+    "start:migrate": "npm run migrate && npm run start",
     "start:dev": "nodemon --watch src --exec ts-node -r tsconfig-paths/register src/main.ts",
     "build": "tsc",
     "test": "jest --passWithNoTests",

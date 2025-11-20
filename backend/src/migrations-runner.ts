@@ -4,43 +4,48 @@
  * Uso: npm run build && npm run migrate
  */
 import 'reflect-metadata';
-import { DataSource } from 'typeorm';
 import { Logger } from '@nestjs/common';
+import { AppDataSource } from './data-source';
 
 // Cargar variables de entorno (si se usa dotenv local en dev)
 try { require('dotenv').config(); } catch {}
 
 const logger = new Logger('Migrations');
 
-// DataSource aislado para migraciones (no depende de Nest AppModule)
-const dataSource = new DataSource({
-  type: 'postgres',
-  host: process.env.DB_HOST,
-  port: parseInt(process.env.DB_PORT || '5432'),
-  username: process.env.DB_USER,
-  password: process.env.DB_PASS, // Debe venir de Key Vault reference en App Settings
-  database: process.env.DB_NAME,
-  ssl: process.env.DB_SSL === '1' ? { rejectUnauthorized: false } : false,
-  synchronize: false,
-  migrationsRun: false,
-  logging: false,
-  entities: [__dirname + '/**/*.entity{.js,.ts}'],
-  migrations: [__dirname + '/migrations/**/*{.js,.ts}'],
-});
+/**
+ * Normaliza el username para PostgreSQL Flexible Server.
+ * Flexible Server no requiere formato user@server, solo el nombre del usuario.
+ */
+function normalizeUsername(raw: string | undefined): string | undefined {
+  if (!raw) return raw;
+  const atIndex = raw.indexOf('@');
+  return atIndex > 0 ? raw.substring(0, atIndex) : raw;
+}
 
 async function run() {
   const start = Date.now();
-  logger.log('Iniciando conexión DB para migraciones...');
+  const rawUser = process.env.DB_USER;
+  const normalizedUser = normalizeUsername(rawUser);
+
+  logger.log('[Migration Runner] Iniciando conexión DB para migraciones...');
+  logger.log(`[Migration Runner] DB_USER (raw): ${rawUser}`);
+  logger.log(`[Migration Runner] DB_USER (normalized): ${normalizedUser}`);
+
+  // Sobrescribir credenciales en el DataSource antes de inicializar
+  (AppDataSource.options as any).username = normalizedUser;
+  (AppDataSource.options as any).password = process.env.DB_PASS;
+  (AppDataSource.options as any).logging = true; // Mostrar queries durante migración
+
   try {
-    await dataSource.initialize();
-    logger.log('Conexión establecida. Ejecutando migraciones pendientes...');
-    await dataSource.runMigrations({ transaction: 'all' });
+    await AppDataSource.initialize();
+    logger.log('[Migration Runner] Conexión establecida. Ejecutando migraciones pendientes...');
+    await AppDataSource.runMigrations({ transaction: 'all' });
     const elapsed = Date.now() - start;
-    logger.log(`Migraciones aplicadas correctamente. Tiempo: ${elapsed}ms`);
-    await dataSource.destroy();
-    logger.log('Conexión cerrada.');
+    logger.log(`[Migration Runner] ✓ Migraciones aplicadas correctamente. Tiempo: ${elapsed}ms`);
+    await AppDataSource.destroy();
+    logger.log('[Migration Runner] Conexión cerrada.');
   } catch (err) {
-    logger.error('Error al ejecutar migraciones:', err instanceof Error ? err.message : err);
+    logger.error('[Migration Runner] ✗ Error al ejecutar migraciones:', err instanceof Error ? err.message : err);
     process.exit(1);
   }
 }
