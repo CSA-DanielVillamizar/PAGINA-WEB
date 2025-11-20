@@ -12,6 +12,7 @@ env:
   NODE_VERSION: '20.x'
   AZURE_RESOURCE_GROUP: lama-foundation-rg
   KEY_VAULT_NAME: lama-kv-foundation
+  ARTIFACT_ZIP: 'backend.zip'
 
 jobs:
   build-and-deploy:
@@ -36,24 +37,34 @@ jobs:
       working-directory: ${{ env.AZURE_WEBAPP_PACKAGE_PATH }}
       run: npm run build
 
+    - name: Prune dev dependencies (production only)
+      working-directory: ${{ env.AZURE_WEBAPP_PACKAGE_PATH }}
+      run: npm prune --production
+
+    - name: Package artifact as zip
+      working-directory: ${{ env.AZURE_WEBAPP_PACKAGE_PATH }}
+      run: |
+        apt-get update -y && apt-get install -y zip
+        zip -r ${{ env.ARTIFACT_ZIP }} . -x "**/.git/**" "**/.github/**" "**/infra/**" "**/frontend/**"
+
     - name: Login to Azure
       uses: azure/login@v1
       with:
         creds: ${{ secrets.AZURE_CREDENTIALS }}
 
-    - name: Configure App Settings (KEY_VAULT_NAME)
+    - name: Configure App Settings (KeyVault + run-from-package)
       run: |
         az webapp config appsettings set \
           --name ${{ env.AZURE_WEBAPP_NAME }} \
           --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
-          --settings KEY_VAULT_NAME=${{ env.KEY_VAULT_NAME }}
+          --settings KEY_VAULT_NAME=${{ env.KEY_VAULT_NAME }} SCM_DO_BUILD_DURING_DEPLOYMENT=false WEBSITE_RUN_FROM_PACKAGE=1
       shell: bash
 
-    - name: Deploy to Azure Web App (full backend)
+    - name: Deploy zip to Azure Web App
       uses: azure/webapps-deploy@v2
       with:
         app-name: ${{ env.AZURE_WEBAPP_NAME }}
-        package: ${{ env.AZURE_WEBAPP_PACKAGE_PATH }}
+        package: ${{ env.AZURE_WEBAPP_PACKAGE_PATH }}/${{ env.ARTIFACT_ZIP }}
 
     - name: Logout from Azure
       run: az logout
