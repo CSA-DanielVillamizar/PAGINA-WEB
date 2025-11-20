@@ -38,6 +38,8 @@ import { HealthModule } from './modules/health/health.module'
               retryAttempts: 5,
               retryDelay: 3000,
               autoLoadEntities: true,
+              // SSL requerido para Azure PostgreSQL Flexible Server
+              ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false,
             })
           })
         ]),
