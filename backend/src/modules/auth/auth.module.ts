@@ -10,6 +10,7 @@ import { User } from '../users/user.entity';
 import { EmailConfirmationToken } from './email-confirmation-token.entity';
 import { PasswordResetToken } from './password-reset-token.entity';
 import { RefreshToken } from './refresh-token.entity';
+import { MailerService } from '../../services/mailer.service';
 
 /**
  * Módulo de autenticación que integra Microsoft Entra ID (Azure AD) con JWT.
@@ -31,7 +32,7 @@ import { RefreshToken } from './refresh-token.entity';
     }),
   ],
   controllers: [AuthController],
-  providers: [AuthService, JwtStrategy],
+  providers: [AuthService, JwtStrategy, MailerService],
   exports: [AuthService, JwtModule, PassportModule],
 })
 export class AuthModule {}
