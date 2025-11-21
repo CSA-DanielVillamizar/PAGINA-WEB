@@ -1,7 +1,16 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, BadRequestException, UnauthorizedException, NotFoundException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { ConfidentialClientApplication, Configuration, AuthorizationCodeRequest, AuthError } from '@azure/msal-node';
 import * as bcrypt from 'bcrypt';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository } from 'typeorm';
+import { User } from '../users/user.entity';
+import { EmailConfirmationToken } from './email-confirmation-token.entity';
+import { PasswordResetToken } from './password-reset-token.entity';
+import { RefreshToken } from './refresh-token.entity';
+import { JwtService } from '@nestjs/jwt';
+import * as crypto from 'crypto';
+import { MailerService } from '../../services/mailer.service';
 
 /**
  * Servicio de autenticación con Microsoft Entra ID (Azure AD) y JWT.
@@ -14,7 +23,15 @@ export class AuthService {
   private readonly logger = new Logger(AuthService.name);
   private readonly allowedDomain: string;
 
-  constructor(private configService: ConfigService) {
+  constructor(
+    private configService: ConfigService,
+    @InjectRepository(User) private usersRepo: Repository<User>,
+    @InjectRepository(EmailConfirmationToken) private emailTokenRepo: Repository<EmailConfirmationToken>,
+    @InjectRepository(PasswordResetToken) private passwordTokenRepo: Repository<PasswordResetToken>,
+    @InjectRepository(RefreshToken) private refreshTokenRepo: Repository<RefreshToken>,
+    private jwtService: JwtService,
+    private mailer: MailerService
+  ) {
     this.allowedDomain = this.configService.get<string>('ALLOWED_EMAIL_DOMAIN') || 'fundacionlamamedellin.org';
     // Determinar authority: si MULTI_TENANT=true usar 'common', caso contrario tenant específico.
     const multiTenant = this.configService.get<string>('MULTI_TENANT') === 'true';
@@ -69,6 +86,177 @@ export class AuthService {
   /** Compara hash. */
   async comparePassword(password: string, hash: string): Promise<boolean> {
     return bcrypt.compare(password, hash);
+  }
+
+  /** Genera token aleatorio seguro en formato hexadecimal. */
+  private generateRawToken(bytes = 32): string {
+    return crypto.randomBytes(bytes).toString('hex');
+  }
+
+  /** Hashea token plano con SHA-256. */
+  private hashToken(raw: string): string {
+    return crypto.createHash('sha256').update(raw).digest('hex');
+  }
+
+  /** Tiempo actual + minutos. */
+  private minutesFromNow(minutes: number): Date {
+    return new Date(Date.now() + minutes * 60000);
+  }
+
+  /** Registro de usuario con estado PENDING_CONFIRMATION y envío de email de confirmación. */
+  async register(email: string, password: string, fullName: string) {
+    const existing = await this.usersRepo.findOne({ where: { correo: email.toLowerCase() } });
+    if (existing) throw new BadRequestException('Correo ya registrado');
+
+    const passwordHash = await this.hashPassword(password);
+    let user = this.usersRepo.create({
+      correo: email.toLowerCase(),
+      nombreCompleto: fullName,
+      passwordHash,
+      estado: 'PENDING_CONFIRMATION'
+    });
+    user = await this.usersRepo.save(user);
+
+    // Generar token confirmación
+    const rawToken = this.generateRawToken(24);
+    const tokenHash = this.hashToken(rawToken);
+    const emailToken = this.emailTokenRepo.create({
+      tokenHash,
+      user,
+      expiresAt: this.minutesFromNow(60), // 1 hora
+    });
+    await this.emailTokenRepo.save(emailToken);
+
+    // Enviar email si Mailer habilitado
+    const frontendBase = this.configService.get<string>('FRONTEND_URL') || 'https://lama-frontend';
+    const confirmUrl = `${frontendBase}/auth/confirmar-email?token=${rawToken}`;
+    if (this.mailer.isEnabled()) {
+      await this.mailer.sendMail({
+        to: user.correo,
+        subject: 'Confirmación de correo - Fundación LAMA Medellín',
+        html: `<h1>Confirmación de correo</h1><p>Hola ${fullName},</p><p>Por favor confirma tu correo haciendo clic en el siguiente enlace:</p><p><a href="${confirmUrl}">${confirmUrl}</a></p><p>Este enlace expira en 60 minutos.</p>`
+      });
+    }
+    return { id: user.id, correo: user.correo, estado: user.estado };
+  }
+
+  /** Confirma email con token plano. */
+  async confirmEmail(rawToken: string) {
+    const tokenHash = this.hashToken(rawToken);
+    const record = await this.emailTokenRepo.findOne({ where: { tokenHash }, relations: ['user'] });
+    if (!record) throw new BadRequestException('Token inválido');
+    if (record.used) throw new BadRequestException('Token ya utilizado');
+    if (record.expiresAt < new Date()) throw new BadRequestException('Token expirado');
+
+    const user = record.user;
+    user.estado = 'ACTIVE';
+    await this.usersRepo.save(user);
+    record.used = true;
+    await this.emailTokenRepo.save(record);
+    return { confirmado: true, userId: user.id };
+  }
+
+  /** Login con email/password (solo usuarios ACTIVE). */
+  async loginLocal(email: string, password: string) {
+    const user = await this.usersRepo.findOne({ where: { correo: email.toLowerCase() }, relations: ['roles'] });
+    if (!user) throw new UnauthorizedException('Credenciales inválidas');
+    if (user.estado !== 'ACTIVE') throw new UnauthorizedException('Usuario no activo');
+    if (!user.passwordHash || !(await this.comparePassword(password, user.passwordHash))) {
+      throw new UnauthorizedException('Credenciales inválidas');
+    }
+    const accessToken = this.createAccessToken(user);
+    const refresh = await this.issueRefreshToken(user);
+    return { accessToken, refreshToken: refresh.raw, user: this.publicUser(user) };
+  }
+
+  /** Crea JWT de acceso. */
+  private createAccessToken(user: User): string {
+    const payload = {
+      sub: user.id,
+      email: user.correo,
+      roles: user.roles?.map(r => r.name) || [],
+      capitulo: user.capitulo || null
+    };
+    return this.jwtService.sign(payload, { expiresIn: '20m' });
+  }
+
+  /** Emite refresh token persistiendo hash. */
+  private async issueRefreshToken(user: User) {
+    const raw = this.generateRawToken(32);
+    const tokenHash = this.hashToken(raw);
+    const record = this.refreshTokenRepo.create({
+      tokenHash,
+      user,
+      expiresAt: this.minutesFromNow(60 * 24 * 15) // 15 días
+    });
+    await this.refreshTokenRepo.save(record);
+    return { raw, recordId: record.id };
+  }
+
+  /** Endpoint refresh: rota refresh token y devuelve nuevo access+refresh. */
+  async refresh(rawRefreshToken: string) {
+    const tokenHash = this.hashToken(rawRefreshToken);
+    const record = await this.refreshTokenRepo.findOne({ where: { tokenHash }, relations: ['user'] });
+    if (!record || record.revoked) throw new UnauthorizedException('Refresh token inválido');
+    if (record.expiresAt < new Date()) throw new UnauthorizedException('Refresh token expirado');
+    const user = await this.usersRepo.findOne({ where: { id: record.user.id }, relations: ['roles'] });
+    if (!user) throw new UnauthorizedException('Usuario no encontrado');
+    // Revocar token anterior
+    record.revoked = true;
+    await this.refreshTokenRepo.save(record);
+    const accessToken = this.createAccessToken(user);
+    const newRefresh = await this.issueRefreshToken(user);
+    return { accessToken, refreshToken: newRefresh.raw };
+  }
+
+  /** Solicitud de recuperación de contraseña. */
+  async forgotPassword(email: string) {
+    const user = await this.usersRepo.findOne({ where: { correo: email.toLowerCase() } });
+    if (!user) throw new NotFoundException('Correo no registrado');
+    const rawToken = this.generateRawToken(24);
+    const tokenHash = this.hashToken(rawToken);
+    const reset = this.passwordTokenRepo.create({
+      tokenHash,
+      user,
+      expiresAt: this.minutesFromNow(30) // 30 minutos
+    });
+    await this.passwordTokenRepo.save(reset);
+    const frontendBase = this.configService.get<string>('FRONTEND_URL') || 'https://lama-frontend';
+    const resetUrl = `${frontendBase}/auth/reset-password?token=${rawToken}`;
+    if (this.mailer.isEnabled()) {
+      await this.mailer.sendMail({
+        to: user.correo,
+        subject: 'Recuperación de contraseña - Fundación LAMA Medellín',
+        html: `<h1>Recuperación de contraseña</h1><p>Solicitaste restablecer tu contraseña.</p><p>Haz clic en: <a href="${resetUrl}">${resetUrl}</a></p><p>Expira en 30 minutos.</p>`
+      });
+    }
+    return { enviado: true };
+  }
+
+  /** Reseteo de contraseña con token. */
+  async resetPassword(rawToken: string, newPassword: string) {
+    const tokenHash = this.hashToken(rawToken);
+    const record = await this.passwordTokenRepo.findOne({ where: { tokenHash }, relations: ['user'] });
+    if (!record) throw new BadRequestException('Token inválido');
+    if (record.used) throw new BadRequestException('Token ya utilizado');
+    if (record.expiresAt < new Date()) throw new BadRequestException('Token expirado');
+    const user = record.user;
+    user.passwordHash = await this.hashPassword(newPassword);
+    await this.usersRepo.save(user);
+    record.used = true;
+    await this.passwordTokenRepo.save(record);
+    return { actualizado: true };
+  }
+
+  /** Representación pública del usuario. */
+  private publicUser(user: User) {
+    return {
+      id: user.id,
+      nombreCompleto: user.nombreCompleto,
+      correo: user.correo,
+      roles: user.roles?.map(r => r.name) || [],
+      estado: user.estado
+    };
   }
 
   /**

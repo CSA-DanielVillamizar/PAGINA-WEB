@@ -28,6 +28,12 @@ export class Subscription {
   @Column({ type: 'timestamp', nullable: true })
   unsubscribedAt: Date;
 
+  @Column({ type: 'uuid', unique: true, nullable: true })
+  confirmToken: string;
+
+  @Column({ type: 'uuid', unique: true, nullable: true })
+  unsubscribeToken: string;
+
   @Column({ type: 'uuid', nullable: true })
   userId: string;
 

@@ -7,6 +7,9 @@ import { AuthService } from './auth.service';
 import { AuthController } from './auth.controller';
 import { JwtStrategy } from '../../strategies/jwt.strategy';
 import { User } from '../users/user.entity';
+import { EmailConfirmationToken } from './email-confirmation-token.entity';
+import { PasswordResetToken } from './password-reset-token.entity';
+import { RefreshToken } from './refresh-token.entity';
 
 /**
  * Módulo de autenticación que integra Microsoft Entra ID (Azure AD) con JWT.
@@ -14,7 +17,7 @@ import { User } from '../users/user.entity';
  */
 @Module({
   imports: [
-    TypeOrmModule.forFeature([User]),
+  TypeOrmModule.forFeature([User, EmailConfirmationToken, PasswordResetToken, RefreshToken]),
     PassportModule.register({ defaultStrategy: 'jwt' }),
     JwtModule.registerAsync({
       imports: [ConfigModule],

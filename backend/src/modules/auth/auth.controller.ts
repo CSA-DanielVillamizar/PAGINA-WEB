@@ -71,6 +71,53 @@ export class AuthController {
     };
   }
 
+  // ---------------------- NUEVOS ENDPOINTS AUTENTICACIÓN LOCAL ----------------------
+
+  @Post('register')
+  @ApiOperation({ summary: 'Registro de usuario local con confirmación de email' })
+  async register(@Body() body: { email: string; password: string; fullName: string }) {
+    const { email, password, fullName } = body;
+    if (!email || !password || !fullName) throw new BadRequestException('email, password y fullName son requeridos');
+    return this.authService.register(email, password, fullName);
+  }
+
+  @Post('confirm-email')
+  @ApiOperation({ summary: 'Confirmar email con token' })
+  async confirmEmail(@Body('token') token: string) {
+    if (!token) throw new BadRequestException('Falta token');
+    return this.authService.confirmEmail(token);
+  }
+
+  @Post('login')
+  @ApiOperation({ summary: 'Login local con email y password' })
+  async login(@Body() body: { email: string; password: string }) {
+    const { email, password } = body;
+    if (!email || !password) throw new BadRequestException('email y password requeridos');
+    return this.authService.loginLocal(email, password);
+  }
+
+  @Post('refresh')
+  @ApiOperation({ summary: 'Refrescar sesión con refresh token' })
+  async refresh(@Body('refreshToken') refreshToken: string) {
+    if (!refreshToken) throw new BadRequestException('Falta refreshToken');
+    return this.authService.refresh(refreshToken);
+  }
+
+  @Post('forgot-password')
+  @ApiOperation({ summary: 'Solicitar recuperación de contraseña' })
+  async forgotPassword(@Body('email') email: string) {
+    if (!email) throw new BadRequestException('Falta email');
+    return this.authService.forgotPassword(email);
+  }
+
+  @Post('reset-password')
+  @ApiOperation({ summary: 'Restablecer contraseña mediante token' })
+  async resetPassword(@Body() body: { token: string; newPassword: string }) {
+    const { token, newPassword } = body;
+    if (!token || !newPassword) throw new BadRequestException('token y newPassword requeridos');
+    return this.authService.resetPassword(token, newPassword);
+  }
+
   @Get('me')
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth()

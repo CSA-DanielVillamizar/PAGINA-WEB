@@ -24,6 +24,23 @@ export class Souvenir {
   @Column({ type: 'int', default: 0 })
   stock: number;
 
+  @Column({ type: 'jsonb', nullable: true })
+  inventory: {
+    quantity: number
+    reserved: number
+    available: number
+    lastRestockDate?: Date
+  };
+
+  @Column({ type: 'jsonb', default: '[]' })
+  transactions: Array<{
+    date: Date
+    type: 'sale' | 'restock' | 'adjustment' | 'return'
+    quantity: number
+    userId?: string
+    notes?: string
+  }>;
+
   @Column({ type: 'varchar', length: 500, nullable: true })
   imageUrl: string;
 

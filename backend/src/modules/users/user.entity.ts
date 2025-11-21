@@ -20,6 +20,7 @@ export class User {
   @Column({ nullable: true })
   passwordHash?: string
 
+  /** Estado del usuario: ACTIVE | PENDING_CONFIRMATION | DISABLED */
   @Column({ default: 'ACTIVE' })
   estado: string
 

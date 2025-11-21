@@ -2,7 +2,11 @@ import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateCol
 
 /**
  * Entidad Evento
- * Representa los eventos de la fundación
+ * Representa los eventos de la fundación.
+ * Extendido con:
+ * - coverImageUrl: Imagen de portada principal.
+ * - registrations: JSONB array con registro de participantes { userId, registeredAt, attended, certificateIssued }.
+ * - reminders: JSONB array para programar recordatorios { sentAt, type, recipient }.
  */
 @Entity('events')
 export class Event {
@@ -21,8 +25,13 @@ export class Event {
   @Column({ type: 'varchar', length: 255, nullable: true })
   location: string;
 
+  /** Imagen legacy */
   @Column({ type: 'varchar', length: 500, nullable: true })
   imageUrl: string;
+
+  /** Imagen de portada principal */
+  @Column({ type: 'varchar', length: 500, nullable: true })
+  coverImageUrl?: string;
 
   @Column({ type: 'varchar', length: 50, default: 'upcoming' })
   status: string;
@@ -32,6 +41,23 @@ export class Event {
 
   @Column({ type: 'int', default: 0 })
   registeredCount: number;
+
+  /** Lista de inscripciones con detalles de asistencia y certificados */
+  @Column({ type: 'jsonb', nullable: true })
+  registrations?: {
+    userId: string
+    registeredAt: string
+    attended?: boolean
+    certificateIssued?: boolean
+  }[];
+
+  /** Recordatorios programados o enviados */
+  @Column({ type: 'jsonb', nullable: true })
+  reminders?: {
+    sentAt: string
+    type: string
+    recipient: string
+  }[];
 
   @CreateDateColumn()
   createdAt: Date;

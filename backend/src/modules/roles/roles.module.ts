@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common'
+import { Module, OnModuleInit } from '@nestjs/common'
 import { TypeOrmModule } from '@nestjs/typeorm'
 import { Role } from './role.entity'
 import { RolesService } from './roles.service'
@@ -10,4 +10,11 @@ import { RolesController } from './roles.controller'
   controllers: [RolesController],
   exports: [RolesService]
 })
-export class RolesModule {}
+export class RolesModule implements OnModuleInit {
+  constructor(private rolesService: RolesService) {}
+
+  /** Al iniciar el módulo se asegura que los roles oficiales existan. */
+  async onModuleInit() {
+    await this.rolesService.seed();
+  }
+}

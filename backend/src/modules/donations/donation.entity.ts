@@ -3,7 +3,11 @@ import { User } from '../users/user.entity';
 
 /**
  * Entidad Donación
- * Representa las donaciones realizadas por usuarios
+ * Representa las donaciones realizadas por usuarios.
+ * Extendido con:
+ * - paymentInfo: JSONB con detalles completos del pago (gateway, fees, reference).
+ * - receiptUrl: URL del recibo PDF generado.
+ * - receiptNumber: Número único de recibo para referencia fiscal.
  */
 @Entity('donations')
 export class Donation {
@@ -27,6 +31,23 @@ export class Donation {
 
   @Column({ type: 'varchar', length: 50, default: 'completed' })
   status: string;
+
+  /** Información detallada del pago (gateway, fees, metadata) */
+  @Column({ type: 'jsonb', nullable: true })
+  paymentInfo?: {
+    gateway?: string
+    fees?: number
+    reference?: string
+    metadata?: Record<string, any>
+  };
+
+  /** URL del recibo PDF generado */
+  @Column({ type: 'varchar', length: 500, nullable: true })
+  receiptUrl?: string;
+
+  /** Número único de recibo para referencia fiscal */
+  @Column({ type: 'varchar', length: 100, nullable: true, unique: true })
+  receiptNumber?: string;
 
   @CreateDateColumn()
   createdAt: Date;
