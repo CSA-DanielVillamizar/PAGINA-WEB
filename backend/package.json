@@ -13,8 +13,8 @@
     "build": "tsc",
     "test": "jest --passWithNoTests",
     "migrate": "node dist/migrations-runner.js",
-    "migration:run": "npx typeorm migration:run -d dist/data-source.js",
-    "migration:revert": "npx typeorm migration:revert -d dist/data-source.js"
+    "migration:run": "node ./node_modules/typeorm/cli.js migration:run -d dist/data-source.js",
+    "migration:revert": "node ./node_modules/typeorm/cli.js migration:revert -d dist/data-source.js"
   },
   "dependencies": {
     "@azure/communication-email": "^1.0.0",
