@@ -7,7 +7,7 @@ import { MailerService } from '../../services/mailer.service';
  * Endpoints seguros para pruebas internas y monitoreo inicial.
  * Rutas: /api/diagnostics/blob y /api/diagnostics/email
  */
-@Controller('api/diagnostics')
+@Controller('diagnostics')
 export class DiagnosticsController {
   constructor(private readonly blob: BlobService, private readonly mailer: MailerService) {}
 
