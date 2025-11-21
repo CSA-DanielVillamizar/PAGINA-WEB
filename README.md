@@ -385,3 +385,61 @@ Este proyecto es propiedad de la **Fundación L.A.M.A. Medellín**. Todos los de
 ---
 
 **Desarrollado con ❤️ para la comunidad motera de Medellín**
+
+## ⚙️ Configuración de Servicios Externos (Producción)
+
+### Azure Blob Storage
+
+Variables soportadas (usar una estrategia, preferible Key Vault references):
+
+| Variable | Obligatoria | Descripción |
+|----------|-------------|-------------|
+| `AZURE_STORAGE_CONNECTION_STRING` | Opcional* | Cadena completa con `AccountName` y `AccountKey` (preferida). |
+| `AZURE_STORAGE_ACCOUNT` | Opcional* | Nombre de la cuenta si se construye la cadena. |
+| `AZURE_STORAGE_KEY` | Opcional* | Clave primaria/rotada de la cuenta. |
+| `FEATURE_BLOB_REQUIRED` | Opcional | Si = `true`, la aplicación fallará el arranque si falta configuración válida. |
+
+(*) Se requiere o la connection string o el par `AZURE_STORAGE_ACCOUNT` + `AZURE_STORAGE_KEY`.
+
+Ejemplo construcción manual si no se expone la connection string:
+```text
+DefaultEndpointsProtocol=https;AccountName=${AZURE_STORAGE_ACCOUNT};AccountKey=${AZURE_STORAGE_KEY};EndpointSuffix=core.windows.net
+```
+
+### Azure Communication Services (Email)
+
+| Variable | Obligatoria | Descripción |
+|----------|-------------|-------------|
+| `AZURE_COMMUNICATION_CONNECTION_STRING` | Sí (si email habilitado) | Debe cumplir patrón `endpoint=https://<recurso>.communication.azure.com/;accesskey=<clave>` |
+| `EMAIL_SENDER_ADDRESS` | Sí | Dirección verificada remitente (ej: `no-reply@fundacionlama.org`). |
+| `FEATURE_EMAIL_REQUIRED` | Opcional | Si = `true`, arranque falla si la cadena es inválida o falta. |
+
+### Recomendaciones de Seguridad
+
+- Usar Managed Identity + Key Vault references en App Service para inyectar secretos.
+- Rotar claves de Storage y ACS y NO cambiar el nombre del secreto (solo nueva versión en Key Vault).
+- Activar flags `FEATURE_*_REQUIRED` solo cuando el servicio sea crítico para el flujo.
+
+### Ejemplo Referencia Key Vault en App Service
+
+```env
+AZURE_STORAGE_CONNECTION_STRING = @Microsoft.KeyVault(SecretUri=https://lama-kv-foundation.vault.azure.net/secrets/storage-conn/<version>)
+AZURE_COMMUNICATION_CONNECTION_STRING = @Microsoft.KeyVault(SecretUri=https://lama-kv-foundation.vault.azure.net/secrets/acs-email-conn/<version>)
+EMAIL_SENDER_ADDRESS = no-reply@fundacionlama.org
+FEATURE_BLOB_REQUIRED = true
+FEATURE_EMAIL_REQUIRED = false
+```
+
+### Verificación Post Despliegue
+
+1. Revisar logs: debe aparecer `BlobService inicializado` y/o `MailerService inicializado`.
+2. Probar subida de archivo (endpoint de carga) y validar URL.
+3. Probar envío de correo de prueba (endpoint interno o script temporal).
+4. Observar métricas y fallos en Application Insights.
+
+### Fallback y Modo Degradado
+
+Si un servicio no es requerido y falta configuración:
+- Blob: lanzará errores solo al intentar operaciones de carga/lectura.
+- Email: registrará `MailerService deshabilitado` y continuará.
+

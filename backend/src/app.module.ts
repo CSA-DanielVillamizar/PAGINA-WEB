@@ -16,6 +16,7 @@ import { FormsModule } from './modules/forms/forms.module'
 import { ReportsModule } from './modules/reports/reports.module'
 import { HealthModule } from './modules/health/health.module'
 import { AdminModule } from './modules/admin/admin.module'
+import { DiagnosticsModule } from './modules/diagnostics/diagnostics.module'
 
 @Module({
   imports: [
@@ -88,6 +89,7 @@ import { AdminModule } from './modules/admin/admin.module'
     ReportsModule,
     HealthModule,
     AdminModule,
+    DiagnosticsModule,
   ],
 })
 export class AppModule {}

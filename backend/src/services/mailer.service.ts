@@ -10,21 +10,63 @@ import { EmailClient, EmailMessage } from '@azure/communication-email';
 export class MailerService {
   private readonly logger = new Logger(MailerService.name);
   private emailClient: EmailClient | null = null;
-  private senderAddress: string;
+  private senderAddress: string = 'noreply@fundacionlama.org';
+  private enabled = false; // Modo degradado si falla inicialización
 
+  /**
+   * Constructor: inicializa el cliente de envío de correos si la connection string es válida.
+   * Reglas de robustez:
+   * - Si la cadena falta o está mal formada se entra en modo degradado sin bloquear el arranque.
+   * - Se validan patrones básicos ("endpoint=" y clave/sas).
+   */
   constructor(private configService: ConfigService) {
+    const required = this.configService.get<string>('FEATURE_EMAIL_REQUIRED') === 'true';
     const connectionString = this.configService.get<string>('AZURE_COMMUNICATION_CONNECTION_STRING');
-    
-    if (connectionString) {
-      try {
-        this.emailClient = new EmailClient(connectionString);
-        this.senderAddress = this.configService.get<string>('EMAIL_SENDER_ADDRESS') || 'noreply@fundacionlama.org';
-      } catch (error) {
-        this.logger.error(`Error initializing email client: ${error.message}`);
+    this.senderAddress = this.configService.get<string>('EMAIL_SENDER_ADDRESS') || this.senderAddress;
+
+    if (!connectionString) {
+      const msg = 'MailerService deshabilitado: falta AZURE_COMMUNICATION_CONNECTION_STRING';
+      if (required) {
+        this.logger.error(msg);
+        throw new Error('FEATURE_EMAIL_REQUIRED habilitado y falta la cadena de conexión de Azure Communication Services');
       }
-    } else {
-      this.logger.warn('Azure Communication Services connection string not configured');
+      this.logger.warn(msg);
+      return;
     }
+
+    const normalized = connectionString.trim();
+    const looksValid = /^endpoint=https:\/\/.*communication\.azure\.com\/?;accesskey=.+$/i.test(normalized);
+
+    if (!looksValid) {
+      const msg = 'MailerService: cadena de conexión inválida (no cumple patrón endpoint + accesskey).';
+      if (required) {
+        this.logger.error(msg);
+        throw new Error('Cadena de conexión Azure Communication inválida y servicio marcado como requerido.');
+      }
+      this.logger.error(msg);
+      return;
+    }
+
+    try {
+      this.emailClient = new EmailClient(normalized);
+      this.enabled = true;
+      this.logger.log('MailerService inicializado correctamente (Azure Communication Email).');
+    } catch (error: any) {
+      const msg = `MailerService: error inicializando cliente -> ${error.message}`;
+      if (required) {
+        this.logger.error(msg);
+        throw new Error('Error crítico inicializando MailerService requerido');
+      }
+      this.logger.error(msg);
+      this.logger.warn('MailerService operará en modo degradado (sin envío de correos).');
+    }
+  }
+
+  /**
+   * Indica si el servicio está habilitado (cliente válido listo para enviar).
+   */
+  isEnabled(): boolean {
+    return this.enabled && !!this.emailClient;
   }
 
   /**
@@ -36,14 +78,14 @@ export class MailerService {
     text?: string;
     html?: string;
   }): Promise<void> {
-    if (!this.emailClient) {
-      this.logger.warn('Email client not configured, skipping email send');
+    if (!this.isEnabled()) {
+      this.logger.warn(`MailerService deshabilitado: se omite envío (subject="${options.subject}")`);
       return;
     }
 
     try {
       const recipients = Array.isArray(options.to) ? options.to : [options.to];
-      
+
       const message: EmailMessage = {
         senderAddress: this.senderAddress,
         content: {
@@ -56,13 +98,13 @@ export class MailerService {
         },
       };
 
-      const poller = await this.emailClient.beginSend(message);
+      const poller = await this.emailClient!.beginSend(message);
       await poller.pollUntilDone();
-      
-      this.logger.log(`Email sent successfully to ${recipients.join(', ')}`);
-    } catch (error) {
-      this.logger.error(`Error sending email: ${error.message}`);
-      throw error;
+
+      this.logger.log(`Correo enviado correctamente a: ${recipients.join(', ')}`);
+    } catch (error: any) {
+      this.logger.error(`MailerService: error enviando correo -> ${error.message}`);
+      // No relanzamos para no degradar flujo principal.
     }
   }
 
