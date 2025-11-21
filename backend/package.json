@@ -12,7 +12,9 @@
     "start:dev": "nodemon --watch src --exec ts-node -r tsconfig-paths/register src/main.ts",
     "build": "tsc",
     "test": "jest --passWithNoTests",
-    "migrate": "node dist/migrations-runner.js"
+    "migrate": "node dist/migrations-runner.js",
+    "migration:run": "typeorm migration:run -d dist/data-source.js",
+    "migration:revert": "typeorm migration:revert -d dist/data-source.js"
   },
   "dependencies": {
     "@azure/communication-email": "^1.0.0",
