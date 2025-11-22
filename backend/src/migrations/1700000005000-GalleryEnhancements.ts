@@ -3,7 +3,7 @@ import { MigrationInterface, QueryRunner, TableColumn } from 'typeorm'
 export class GalleryEnhancements1700000005000 implements MigrationInterface {
   public async up(queryRunner: QueryRunner): Promise<void> {
     await queryRunner.addColumn(
-      'gallery',
+        'gallery_albums',
       new TableColumn({
         name: 'thumbnailUrl',
         type: 'varchar',
@@ -14,7 +14,7 @@ export class GalleryEnhancements1700000005000 implements MigrationInterface {
     )
 
     await queryRunner.addColumn(
-      'gallery',
+        'gallery_albums',
       new TableColumn({
         name: 'metadata',
         type: 'jsonb',
@@ -24,11 +24,11 @@ export class GalleryEnhancements1700000005000 implements MigrationInterface {
     )
 
     // Agregar timestamps si no existen (createdAt y updatedAt ya podrían estar)
-    const table = await queryRunner.getTable('gallery')
+    const table = await queryRunner.getTable('gallery_albums')
     
-    if (!table.findColumnByName('createdAt')) {
+    if (table && !table.findColumnByName('createdAt')) {
       await queryRunner.addColumn(
-        'gallery',
+        'gallery_albums',
         new TableColumn({
           name: 'createdAt',
           type: 'timestamp',
@@ -37,9 +37,9 @@ export class GalleryEnhancements1700000005000 implements MigrationInterface {
       )
     }
 
-    if (!table.findColumnByName('updatedAt')) {
+    if (table && !table.findColumnByName('updatedAt')) {
       await queryRunner.addColumn(
-        'gallery',
+          'gallery_albums',
         new TableColumn({
           name: 'updatedAt',
           type: 'timestamp',
@@ -51,17 +51,17 @@ export class GalleryEnhancements1700000005000 implements MigrationInterface {
   }
 
   public async down(queryRunner: QueryRunner): Promise<void> {
-    const table = await queryRunner.getTable('gallery')
+    const table = await queryRunner.getTable('gallery_albums')
     
-    if (table.findColumnByName('updatedAt')) {
-      await queryRunner.dropColumn('gallery', 'updatedAt')
+      if (table && table.findColumnByName('updatedAt')) {
+      await queryRunner.dropColumn('gallery_albums', 'updatedAt')
     }
     
-    if (table.findColumnByName('createdAt')) {
-      await queryRunner.dropColumn('gallery', 'createdAt')
+      if (table && table.findColumnByName('createdAt')) {
+      await queryRunner.dropColumn('gallery_albums', 'createdAt')
     }
     
-    await queryRunner.dropColumn('gallery', 'metadata')
-    await queryRunner.dropColumn('gallery', 'thumbnailUrl')
+      await queryRunner.dropColumn('gallery_albums', 'metadata')
+      await queryRunner.dropColumn('gallery_albums', 'thumbnailUrl')
   }
 }

@@ -1,14 +1,9 @@
-/**
- * migrations-runner.ts
- * Runner para ejecutar migraciones TypeORM en entorno producción.
- * Uso: npm run build && npm run migrate
- */
-import 'reflect-metadata';
-import { Logger } from '@nestjs/common';
-import { AppDataSource } from './data-source';
-
-// Cargar variables de entorno (si se usa dotenv local en dev)
+// Cargar variables de entorno PRIMERO (antes de importar data-source)
 try { require('dotenv').config(); } catch {}
+
+require('reflect-metadata');
+const { Logger } = require('@nestjs/common');
+const { AppDataSource } = require('./data-source');
 
 const logger = new Logger('Migrations');
 
@@ -46,6 +41,10 @@ async function run() {
     logger.log('[Migration Runner] Conexión cerrada.');
   } catch (err) {
     logger.error('[Migration Runner] ✗ Error al ejecutar migraciones:', err instanceof Error ? err.message : err);
+    if (err instanceof Error && err.stack) {
+      console.error('Stack trace completo:', err.stack);
+    }
+    console.error('Error completo:', err);
     process.exit(1);
   }
 }
