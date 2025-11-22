@@ -48,18 +48,24 @@ jobs:
         app-name: ${{ env.AZURE_WEBAPP_NAME }}
         package: ${{ env.AZURE_WEBAPP_PACKAGE_PATH }}
 
-    - name: Run Database Migrations
+    - name: Configure Startup Command
       run: |
-        echo "Triggering migrations via Kudu API..."
-        az webapp ssh --name ${{ env.AZURE_WEBAPP_NAME }} --resource-group ${{ env.AZURE_RESOURCE_GROUP }} --command "cd /home/site/wwwroot && npm run migrate" || echo "Migration step completed (check logs if needed)"
+        echo "Configuring startup command to run migrations before starting..."
+        az webapp config set --name ${{ env.AZURE_WEBAPP_NAME }} --resource-group ${{ env.AZURE_RESOURCE_GROUP }} --startup-file "npm run start:migrate"
+      shell: bash
+
+    - name: Restart Web App
+      run: |
+        echo "Restarting app to apply new startup command..."
+        az webapp restart --name ${{ env.AZURE_WEBAPP_NAME }} --resource-group ${{ env.AZURE_RESOURCE_GROUP }}
       shell: bash
 
     - name: Verify Health Endpoints
       run: |
-        echo "Waiting 30 seconds for app to start..."
-        sleep 30
+        echo "Waiting 60 seconds for app to fully start with migrations..."
+        sleep 60
         echo "Testing health endpoint..."
-        curl -f https://${{ env.AZURE_WEBAPP_NAME }}.azurewebsites.net/health || echo "Health check pending"
+        curl -f https://${{ env.AZURE_WEBAPP_NAME }}.azurewebsites.net/health || echo "Health check pending (app may still be starting)"
       shell: bash
 
     - name: Logout from Azure
