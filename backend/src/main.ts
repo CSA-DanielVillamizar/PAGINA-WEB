@@ -10,6 +10,8 @@ async function bootstrap(retry = 0) {
   try {
     const app = await NestFactory.create(AppModule, { bufferLogs: true })
     app.useLogger(logger)
+    // Log diagnóstico temprano antes de cualquier operación pesada
+    logger.log(`Iniciando bootstrap. NODE_ENV=${process.env.NODE_ENV || 'undefined'} PORT-env=${process.env.PORT || 'unset'} DISABLE_DB=${process.env.DISABLE_DB || '0'}`)
   
   // Global validation pipe
   app.useGlobalPipes(new ValidationPipe({ 
@@ -36,6 +38,15 @@ async function bootstrap(retry = 0) {
     .build()
   const document = SwaggerModule.createDocument(app, config)
   SwaggerModule.setup('api/docs', app, document)
+
+  // Endpoint raíz /health (sin prefijo) para probes externos (pipeline y Azure)
+  // Mantiene el existente /api/health del controlador.
+  const expressInstance = app.getHttpAdapter().getInstance()
+  if (expressInstance?.get) {
+    expressInstance.get('/health', (_req: any, res: any) => {
+      res.json({ status: 'ok', service: 'lama-backend', uptime: process.uptime() })
+    })
+  }
   
   // Azure App Service suele requerir puerto 8080 si PORT no está definido
   const port = process.env.PORT || '8080'
