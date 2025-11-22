@@ -50,9 +50,9 @@ jobs:
 
     - name: Configure Startup Command
       run: |
-        echo "Configuring environment and minimal healthcheck startup for diagnosis..."
+        echo "Configuring environment and startup with enhanced logging..."
         az webapp config appsettings set --name ${{ env.AZURE_WEBAPP_NAME }} --resource-group ${{ env.AZURE_RESOURCE_GROUP }} --settings DISABLE_DB=1 NODE_ENV=production
-        az webapp config set --name ${{ env.AZURE_WEBAPP_NAME }} --resource-group ${{ env.AZURE_RESOURCE_GROUP }} --startup-file "node healthcheck.js"
+        az webapp config set --name ${{ env.AZURE_WEBAPP_NAME }} --resource-group ${{ env.AZURE_RESOURCE_GROUP }} --startup-file "bash start-with-logging.sh"
       shell: bash
 
     - name: Restart Web App
