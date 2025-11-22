@@ -55,6 +55,7 @@ async function bootstrap(retry = 0) {
     logger.log(`Swagger docs disponibles en /api/docs`)
   } catch (err) {
     logger.error(`Error al iniciar la aplicación (intento ${retry + 1}): ${(err as Error).message}`)
+    logger.error(`Stack trace: ${(err as Error).stack}`)
     if (retry < 4) {
       const delayMs = 3000 * (retry + 1)
       logger.warn(`Reintentando bootstrap en ${delayMs}ms...`)
@@ -62,8 +63,12 @@ async function bootstrap(retry = 0) {
       return bootstrap(retry + 1)
     }
     logger.error('Falló el inicio después de múltiples intentos. Proceso abortado.')
+    logger.error('Error final completo:', err)
     process.exit(1)
   }
 }
 
-bootstrap()
+bootstrap().catch(err => {
+  console.error('FATAL: Bootstrap crashed:', err)
+  process.exit(1)
+})

@@ -13,6 +13,12 @@ export class HealthService {
   private keyVaultClient?: SecretClient
 
   constructor(private readonly dataSource: DataSource) {
+    // Skip Key Vault initialization if DB is disabled (minimal mode)
+    if (process.env.DISABLE_DB === '1') {
+      this.logger.log('DISABLE_DB=1: Skipping Key Vault initialization')
+      return
+    }
+    
     const keyVaultName = process.env.KEY_VAULT_NAME
     if (keyVaultName) {
       try {
@@ -42,6 +48,9 @@ export class HealthService {
    * Verifica conectividad básica con la base de datos ejecutando un query simple.
    */
   private async checkDatabase(): Promise<boolean> {
+    if (process.env.DISABLE_DB === '1') {
+      return true // Skip DB check when disabled
+    }
     try {
       if (!this.dataSource.isInitialized) {
         await this.dataSource.initialize()
