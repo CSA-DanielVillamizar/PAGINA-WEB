@@ -1,0 +1,41 @@
+name: Check App Service Logs
+
+on:
+  workflow_dispatch:
+
+jobs:
+  check-logs:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Login to Azure
+        uses: azure/login@v1
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+      
+      - name: Get Application Logs
+        run: |
+          echo "=== Checking if app is running ==="
+          az webapp show --name lama-backend-dev --resource-group lama-dev-rg --query "state" -o tsv
+          
+          echo -e "\n=== Current startup command ==="
+          az webapp config show --name lama-backend-dev --resource-group lama-dev-rg --query "appCommandLine" -o tsv
+          
+          echo -e "\n=== Current environment variables (non-sensitive) ==="
+          az webapp config appsettings list --name lama-backend-dev --resource-group lama-dev-rg --query "[?name=='DISABLE_DB' || name=='NODE_ENV' || name=='PORT'].{name:name, value:value}" -o table
+          
+          echo -e "\n=== Recent application logs ==="
+          az webapp log download --name lama-backend-dev --resource-group lama-dev-rg --log-file /tmp/logs.zip
+          
+          echo -e "\n=== Extracting and showing logs ==="
+          unzip -o /tmp/logs.zip -d /tmp/logs/
+          
+          echo -e "\n=== Docker logs ==="
+          if [ -f /tmp/logs/docker.log ]; then
+            tail -100 /tmp/logs/docker.log
+          else
+            echo "No docker.log found"
+            ls -la /tmp/logs/
+          fi
+          
+          echo -e "\n=== Application logs ==="
+          find /tmp/logs -name "*.log" -type f -exec echo "FILE: {}" \; -exec tail -50 {} \;
