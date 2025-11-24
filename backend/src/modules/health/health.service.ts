@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common'
+import { Injectable, Logger, Optional } from '@nestjs/common'
 import { DataSource } from 'typeorm'
 import { DefaultAzureCredential } from '@azure/identity'
 import { SecretClient } from '@azure/keyvault-secrets'
@@ -12,7 +12,7 @@ export class HealthService {
   private readonly logger = new Logger(HealthService.name)
   private keyVaultClient?: SecretClient
 
-  constructor(private readonly dataSource: DataSource) {
+  constructor(@Optional() private readonly dataSource?: DataSource) {
     // Skip Key Vault initialization if DB is disabled (minimal mode)
     if (process.env.DISABLE_DB === '1') {
       this.logger.log('DISABLE_DB=1: Skipping Key Vault initialization')
@@ -52,10 +52,13 @@ export class HealthService {
       return true // Skip DB check when disabled
     }
     try {
-      if (!this.dataSource.isInitialized) {
-        await this.dataSource.initialize()
+      if (!this.dataSource) {
+        return true // No datasource available
       }
-      await this.dataSource.query('SELECT 1')
+      if (!this.dataSource!.isInitialized) {
+        await this.dataSource!.initialize()
+      }
+      await this.dataSource!.query('SELECT 1')
       return true
     } catch (err) {
       this.logger.error('Fallo chequeo DB: ' + (err as Error).message)

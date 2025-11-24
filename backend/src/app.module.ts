@@ -74,21 +74,27 @@ import { DiagnosticsModule } from './modules/diagnostics/diagnostics.module'
             }
           })
         ]),
-    AuthModule,
-    UsersModule,
-    RolesModule,
-    MembersModule,
-    VehiclesModule,
-    EventsModule,
-    SouvenirsModule,
-    NewsModule,
-    DonationsModule,
-    SubscriptionsModule,
-    GalleryModule,
-    FormsModule,
-    ReportsModule,
+    // Feature modules que requieren base de datos
+    ...(process.env.DISABLE_DB === '1'
+      ? []
+      : [
+          AuthModule,
+          UsersModule,
+          RolesModule,
+          MembersModule,
+          VehiclesModule,
+          EventsModule,
+          SouvenirsModule,
+          NewsModule,
+          DonationsModule,
+          SubscriptionsModule,
+          GalleryModule,
+          FormsModule,
+          ReportsModule,
+          AdminModule,
+        ]),
+    // Módulos básicos que funcionan sin DB
     HealthModule,
-    AdminModule,
     DiagnosticsModule,
   ],
 })
