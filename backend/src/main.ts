@@ -23,58 +23,57 @@ async function bootstrap(retry = 0) {
     })
     app.useLogger(logger)
     logger.log('✓ Aplicación NestJS creada exitosamente')
-    logger.log('✓ Aplicación NestJS creada exitosamente')
   
-  logger.log('Paso 2: Configurando validation pipe...')
-  // Global validation pipe
-  app.useGlobalPipes(new ValidationPipe({ 
-    whitelist: true,
-    transform: true,
-    forbidNonWhitelisted: true
-  }))
-  logger.log('✓ Validation pipe configurado')
-  
-  logger.log('Paso 3: Configurando API prefix...')
-  // API prefix
-  app.setGlobalPrefix('api')
-  logger.log('✓ API prefix configurado')
-  
-  logger.log('Paso 4: Configurando CORS...')
-  // CORS
-  app.enableCors({
-    origin: process.env.FRONTEND_URL || 'http://localhost:5173',
-    credentials: true
-  })
-  logger.log('✓ CORS configurado')
-  
-  logger.log('Paso 5: Configurando Swagger...')
-  // Swagger documentation
-  const config = new DocumentBuilder()
-    .setTitle('L.A.M.A. Medellín API')
-    .setDescription('API para gestión de la Fundación L.A.M.A. Medellín')
-    .setVersion('1.0')
-    .addBearerAuth()
-    .build()
-  const document = SwaggerModule.createDocument(app, config)
-  SwaggerModule.setup('api/docs', app, document)
-  logger.log('✓ Swagger configurado')
-
-  logger.log('Paso 6: Configurando health endpoint raíz...')
-  // Endpoint raíz /health (sin prefijo) para probes externos (pipeline y Azure)
-  // Mantiene el existente /api/health del controlador.
-  const expressInstance = app.getHttpAdapter().getInstance()
-  if (expressInstance?.get) {
-    expressInstance.get('/health', (_req: any, res: any) => {
-      res.json({ status: 'ok', service: 'lama-backend', uptime: process.uptime() })
+    logger.log('Paso 2: Configurando validation pipe...')
+    // Global validation pipe
+    app.useGlobalPipes(new ValidationPipe({ 
+      whitelist: true,
+      transform: true,
+      forbidNonWhitelisted: true
+    }))
+    logger.log('✓ Validation pipe configurado')
+    
+    logger.log('Paso 3: Configurando API prefix...')
+    // API prefix
+    app.setGlobalPrefix('api')
+    logger.log('✓ API prefix configurado')
+    
+    logger.log('Paso 4: Configurando CORS...')
+    // CORS
+    app.enableCors({
+      origin: process.env.FRONTEND_URL || 'http://localhost:5173',
+      credentials: true
     })
-    logger.log('✓ Health endpoint configurado')
-  } else {
-    logger.warn('⚠ No se pudo configurar health endpoint (express instance no disponible)')
-  }
-  
-  logger.log('Paso 7: Iniciando servidor HTTP...')
-  // Azure App Service suele requerir puerto 8080 si PORT no está definido
-  const port = process.env.PORT || '8080'
+    logger.log('✓ CORS configurado')
+    
+    logger.log('Paso 5: Configurando Swagger...')
+    // Swagger documentation
+    const config = new DocumentBuilder()
+      .setTitle('L.A.M.A. Medellín API')
+      .setDescription('API para gestión de la Fundación L.A.M.A. Medellín')
+      .setVersion('1.0')
+      .addBearerAuth()
+      .build()
+    const document = SwaggerModule.createDocument(app, config)
+    SwaggerModule.setup('api/docs', app, document)
+    logger.log('✓ Swagger configurado')
+
+    logger.log('Paso 6: Configurando health endpoint raíz...')
+    // Endpoint raíz /health (sin prefijo) para probes externos (pipeline y Azure)
+    // Mantiene el existente /api/health del controlador.
+    const expressInstance = app.getHttpAdapter().getInstance()
+    if (expressInstance?.get) {
+      expressInstance.get('/health', (_req: any, res: any) => {
+        res.json({ status: 'ok', service: 'lama-backend', uptime: process.uptime() })
+      })
+      logger.log('✓ Health endpoint configurado')
+    } else {
+      logger.warn('⚠ No se pudo configurar health endpoint (express instance no disponible)')
+    }
+    
+    logger.log('Paso 7: Iniciando servidor HTTP...')
+    // Azure App Service suele requerir puerto 8080 si PORT no está definido
+    const port = process.env.PORT || '8080'
     await app.listen(port, '0.0.0.0')
     logger.log(`✓ Servidor HTTP escuchando en puerto ${port}`)
     logger.log('=== APLICACIÓN INICIADA EXITOSAMENTE ===')
