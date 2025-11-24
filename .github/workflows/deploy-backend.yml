@@ -48,11 +48,11 @@ jobs:
         app-name: ${{ env.AZURE_WEBAPP_NAME }}
         package: ${{ env.AZURE_WEBAPP_PACKAGE_PATH }}
 
-    - name: Configure Startup Command
-      run: |
-        echo "Configuring environment and startup with enhanced logging..."
-        az webapp config appsettings set --name ${{ env.AZURE_WEBAPP_NAME }} --resource-group ${{ env.AZURE_RESOURCE_GROUP }} --settings DISABLE_DB=1 NODE_ENV=production
-        az webapp config set --name ${{ env.AZURE_WEBAPP_NAME }} --resource-group ${{ env.AZURE_RESOURCE_GROUP }} --startup-file "bash start-with-logging.sh"
+      - name: Configure Startup Command
+        run: |
+          echo "Configuring environment and startup command..."
+          az webapp config appsettings set --name ${{ env.AZURE_WEBAPP_NAME }} --resource-group ${{ env.AZURE_RESOURCE_GROUP }} --settings DISABLE_DB=1 NODE_ENV=production
+          az webapp config set --name ${{ env.AZURE_WEBAPP_NAME }} --resource-group ${{ env.AZURE_RESOURCE_GROUP }} --startup-file "npm start"
       shell: bash
 
     - name: Restart Web App
