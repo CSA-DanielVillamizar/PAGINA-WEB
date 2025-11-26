@@ -49,13 +49,13 @@ jobs:
         package: ${{ env.AZURE_WEBAPP_PACKAGE_PATH }}
 
     - name: Wait for deployment
-      run: sleep 45
+      run: sleep 180
 
     - name: Health check (with retries)
       run: |
         attempts=0
-        max_attempts=6
-        sleep_between=30
+        max_attempts=10
+        sleep_between=20
         url="https://${{ env.AZURE_WEBAPP_NAME }}.azurewebsites.net/health"
         while [ $attempts -lt $max_attempts ]; do
           response=$(curl -s -o /dev/null -w "%{http_code}" "$url")
@@ -65,8 +65,11 @@ jobs:
             exit 0
           fi
           attempts=$((attempts+1))
-          echo "Waiting $sleep_between seconds before next attempt..."
-          sleep $sleep_between
+          if [ $attempts -lt $max_attempts ]; then
+            echo "Waiting $sleep_between seconds before next attempt..."
+            sleep $sleep_between
+          fi
         done
         echo "⚠️  Backend health check failed after $max_attempts attempts"
+        echo "Last response code: $response"
         exit 1
