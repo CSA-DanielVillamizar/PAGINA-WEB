@@ -7,11 +7,10 @@ on:
   workflow_dispatch:
 
 env:
-  AZURE_WEBAPP_NAME: lama-backend-dev
+  AZURE_WEBAPP_NAME: lama-dev-backend
   AZURE_WEBAPP_PACKAGE_PATH: './backend'
-  NODE_VERSION: '24.x'
-  AZURE_RESOURCE_GROUP: lama-dev-rg
-  KEY_VAULT_NAME: lama-kv-dev99
+  NODE_VERSION: '20.x'
+  AZURE_RESOURCE_GROUP: rg-lama-dev
 
 jobs:
   build-and-deploy:
