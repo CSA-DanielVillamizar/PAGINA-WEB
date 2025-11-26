@@ -43,9 +43,14 @@ jobs:
     - name: Prepare standalone deployment
       working-directory: ./frontend-next
       run: |
-        cp -r .next/standalone ./deploy
-        cp -r .next/static ./deploy/.next/static
-        if [ -d "public" ]; then cp -r public ./deploy/public; fi
+        mkdir -p deploy
+        cp -r .next/standalone/* ./deploy/
+        mkdir -p ./deploy/.next/static
+        cp -r .next/static/* ./deploy/.next/static/
+        if [ -d "public" ]; then 
+          mkdir -p ./deploy/public
+          cp -r public/* ./deploy/public/
+        fi
 
     - name: Deploy to Azure Web App (publish profile)
       uses: azure/webapps-deploy@v2
