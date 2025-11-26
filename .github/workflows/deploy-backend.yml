@@ -51,12 +51,22 @@ jobs:
     - name: Wait for deployment
       run: sleep 45
 
-    - name: Health check
+    - name: Health check (with retries)
       run: |
-        response=$(curl -s -o /dev/null -w "%{http_code}" https://${{ env.AZURE_WEBAPP_NAME }}.azurewebsites.net/health)
-        echo "Health check status: $response"
-        if [ "$response" = "200" ]; then
-          echo "✅ Backend deployed successfully"
-        else
-          echo "⚠️  Backend returned status $response"; exit 1
-        fi
+        attempts=0
+        max_attempts=6
+        sleep_between=30
+        url="https://${{ env.AZURE_WEBAPP_NAME }}.azurewebsites.net/health"
+        while [ $attempts -lt $max_attempts ]; do
+          response=$(curl -s -o /dev/null -w "%{http_code}" "$url")
+          echo "Health check attempt $((attempts+1))/$max_attempts: $response"
+          if [ "$response" = "200" ]; then
+            echo "✅ Backend deployed successfully"
+            exit 0
+          fi
+          attempts=$((attempts+1))
+          echo "Waiting $sleep_between seconds before next attempt..."
+          sleep $sleep_between
+        done
+        echo "⚠️  Backend health check failed after $max_attempts attempts"
+        exit 1
