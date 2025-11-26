@@ -40,18 +40,19 @@ jobs:
       env:
         NEXT_PUBLIC_API_BASE_URL: https://lama-dev-backend.azurewebsites.net
 
-    - name: Install production dependencies
+    - name: Prepare standalone deployment
       working-directory: ./frontend-next
       run: |
-        rm -rf node_modules
-        npm ci --omit=dev
+        cp -r .next/standalone ./deploy
+        cp -r .next/static ./deploy/.next/static
+        cp -r public ./deploy/public
 
     - name: Deploy to Azure Web App (publish profile)
       uses: azure/webapps-deploy@v2
       with:
         app-name: 'lama-dev-frontend'
         publish-profile: ${{ secrets.AZURE_WEBAPP_PUBLISH_PROFILE_FRONTEND_NEXT }}
-        package: frontend-next
+        package: frontend-next/deploy
 
     - name: Wait for deployment
       run: sleep 120
