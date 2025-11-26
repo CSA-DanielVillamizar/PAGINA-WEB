@@ -40,12 +40,6 @@ jobs:
       env:
         NEXT_PUBLIC_API_BASE_URL: https://lama-dev-backend.azurewebsites.net
 
-    - name: Install production dependencies only
-      working-directory: ./frontend-next
-      run: |
-        rm -rf node_modules
-        npm ci --omit=dev
-
     - name: Deploy to Azure Web App (publish profile)
       uses: azure/webapps-deploy@v2
       with:
