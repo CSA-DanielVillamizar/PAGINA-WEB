@@ -1,0 +1,39 @@
+name: Deploy Frontend Vite
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'frontend/**'
+      - '.github/workflows/frontend-vite-deploy.yml'
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    # Deploy source to let Oryx install and build; App Service serves /wwwroot via pm2
+    - name: Deploy to Azure Web App (publish profile)
+      uses: azure/webapps-deploy@v2
+      with:
+        app-name: 'lama-dev-frontend-vite'
+        publish-profile: ${{ secrets.AZURE_WEBAPP_PUBLISH_PROFILE_FRONTEND_VITE }}
+        package: frontend
+
+    - name: Wait for deployment
+      run: sleep 30
+
+    - name: Health check
+      run: |
+        response=$(curl -s -o /dev/null -w "%{http_code}" https://lama-dev-frontend-vite.azurewebsites.net)
+        echo "Health check status: $response"
+        if [ "$response" = "200" ] || [ "$response" = "301" ] || [ "$response" = "302" ]; then
+          echo "✅ Frontend Vite deployed successfully"
+        else
+          echo "⚠️  Frontend returned status $response"; exit 1
+        fi

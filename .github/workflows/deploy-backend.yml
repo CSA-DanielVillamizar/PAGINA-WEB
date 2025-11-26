@@ -36,39 +36,29 @@ jobs:
       working-directory: ${{ env.AZURE_WEBAPP_PACKAGE_PATH }}
       run: npm run build
 
+    - name: Prepare deployment package
+      working-directory: ${{ env.AZURE_WEBAPP_PACKAGE_PATH }}
+      run: |
+        rm -rf node_modules
+        cd ..
+        zip -r backend-artifact.zip backend -x "*.git*"
 
-    - name: Login to Azure
-      uses: azure/login@v1
-      with:
-        creds: ${{ secrets.AZURE_CREDENTIALS }}
-
-    - name: Deploy to Azure Web App
+    - name: Deploy to Azure Web App (publish profile)
       uses: azure/webapps-deploy@v2
       with:
         app-name: ${{ env.AZURE_WEBAPP_NAME }}
-        package: ${{ env.AZURE_WEBAPP_PACKAGE_PATH }}
+        publish-profile: ${{ secrets.AZURE_WEBAPP_PUBLISH_PROFILE }}
+        package: backend-artifact.zip
 
-    - name: Configure Startup Command
+    - name: Wait for deployment
+      run: sleep 45
+
+    - name: Health check
       run: |
-        echo "Configuring environment and startup command..."
-        az webapp config appsettings set --name ${{ env.AZURE_WEBAPP_NAME }} --resource-group ${{ env.AZURE_RESOURCE_GROUP }} --settings DISABLE_DB=1 NODE_ENV=production
-        az webapp config set --name ${{ env.AZURE_WEBAPP_NAME }} --resource-group ${{ env.AZURE_RESOURCE_GROUP }} --startup-file "npm start"
-      shell: bash
-
-    - name: Restart Web App
-      run: |
-        echo "Restarting app to apply new startup command..."
-        az webapp restart --name ${{ env.AZURE_WEBAPP_NAME }} --resource-group ${{ env.AZURE_RESOURCE_GROUP }}
-      shell: bash
-
-    - name: Verify Health Endpoints
-      run: |
-        echo "Waiting 60 seconds for app to fully start with migrations..."
-        sleep 60
-        echo "Testing health endpoint..."
-        curl -f https://${{ env.AZURE_WEBAPP_NAME }}.azurewebsites.net/health || echo "Health check pending (app may still be starting)"
-      shell: bash
-
-    - name: Logout from Azure
-      run: az logout
-      if: always()
+        response=$(curl -s -o /dev/null -w "%{http_code}" https://${{ env.AZURE_WEBAPP_NAME }}.azurewebsites.net/health)
+        echo "Health check status: $response"
+        if [ "$response" = "200" ]; then
+          echo "✅ Backend deployed successfully"
+        else
+          echo "⚠️  Backend returned status $response"; exit 1
+        fi

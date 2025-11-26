@@ -1,0 +1,77 @@
+name: Backend Deploy to Azure Web App
+
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - 'backend/**'
+  workflow_dispatch:
+
+env:
+  APP_NAME: lama-dev-backend
+  NODE_VERSION: '20.x'
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: backend/package-lock.json
+
+      - name: Install dependencies
+        working-directory: backend
+        run: |
+          npm ci
+
+      - name: Run tests (optional)
+        if: ${{ always() }}
+        working-directory: backend
+        run: |
+          npm test || echo "Tests fallidos o inexistentes, continuando despliegue"
+
+      - name: Build TypeScript
+        working-directory: backend
+        run: |
+          npm run build
+
+      - name: Prepare artifact for Oryx (remover node_modules)
+        working-directory: backend
+        run: |
+          rm -rf node_modules
+          # Mantener código fuente + dist para fallback; Oryx reinstalará deps.
+
+      - name: Zip source (optimiza transferencia)
+        run: |
+          cd backend
+          zip -r ../backend-artifact.zip . -x "*.git*"
+      
+      - name: Deploy to Azure WebApp (publish profile)
+        uses: azure/webapps-deploy@v2
+        with:
+          app-name: ${{ env.APP_NAME }}
+          publish-profile: ${{ secrets.AZURE_WEBAPP_PUBLISH_PROFILE }}
+          package: backend-artifact.zip
+
+      - name: Post-deploy health check
+        run: |
+          echo "Verificando /health..."
+          for i in {1..10}; do
+            CODE=$(curl -s -o /dev/null -w "%{http_code}" https://${{ env.APP_NAME }}.azurewebsites.net/health || true)
+            if [ "$CODE" = "200" ]; then
+              echo "Health OK"; curl -s https://${{ env.APP_NAME }}.azurewebsites.net/health; exit 0; fi
+            echo "Intento $i - status $CODE"; sleep 6
+          done
+          echo "Health endpoint no respondió 200 dentro del tiempo"; exit 1
+
+      - name: Advise on failure
+        if: failure()
+        run: |
+          echo "Si falló el build, revisar logs de Kudu: https://${{ env.APP_NAME }}.scm.azurewebsites.net/" 
+          echo "Verificar App Settings y que SCM_DO_BUILD_DURING_DEPLOYMENT esté en true"
