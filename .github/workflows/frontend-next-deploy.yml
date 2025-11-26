@@ -34,6 +34,12 @@ jobs:
       env:
         NEXT_PUBLIC_API_BASE_URL: https://lama-dev-backend.azurewebsites.net
 
+    - name: Install production dependencies
+      working-directory: ./frontend-next
+      run: |
+        rm -rf node_modules
+        npm ci --omit=dev
+
     - name: Deploy to Azure Web App (publish profile)
       uses: azure/webapps-deploy@v2
       with:
@@ -44,12 +50,22 @@ jobs:
     - name: Wait for deployment
       run: sleep 30
 
-    - name: Health check
+    - name: Health check (with retries)
       run: |
-        response=$(curl -s -o /dev/null -w "%{http_code}" https://lama-dev-frontend.azurewebsites.net)
-        echo "Health check status: $response"
-        if [ "$response" = "200" ] || [ "$response" = "301" ] || [ "$response" = "302" ]; then
-          echo "✅ Frontend Next.js deployed successfully"
-        else
-          echo "⚠️  Frontend returned status $response"; exit 1
-        fi
+        attempts=0
+        max_attempts=6
+        sleep_between=30
+        url="https://lama-dev-frontend.azurewebsites.net"
+        while [ $attempts -lt $max_attempts ]; do
+          response=$(curl -s -o /dev/null -w "%{http_code}" "$url")
+          echo "Health check attempt $((attempts+1))/$max_attempts: $response"
+          if [ "$response" = "200" ] || [ "$response" = "301" ] || [ "$response" = "302" ]; then
+            echo "✅ Frontend Next.js deployed successfully"
+            exit 0
+          fi
+          attempts=$((attempts+1))
+          echo "Waiting $sleep_between seconds before next attempt..."
+          sleep $sleep_between
+        done
+        echo "⚠️  Frontend health check failed after $max_attempts attempts"
+        exit 1
