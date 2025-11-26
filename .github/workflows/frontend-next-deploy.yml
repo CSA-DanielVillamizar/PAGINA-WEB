@@ -51,6 +51,9 @@ jobs:
           mkdir -p ./deploy/public
           cp -r public/* ./deploy/public/
         fi
+        echo '#!/bin/bash' > ./deploy/startup.sh
+        echo 'node server.js' >> ./deploy/startup.sh
+        chmod +x ./deploy/startup.sh
 
     - name: Deploy to Azure Web App (publish profile)
       uses: azure/webapps-deploy@v2
