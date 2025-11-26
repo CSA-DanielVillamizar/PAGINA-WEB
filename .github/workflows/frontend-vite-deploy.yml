@@ -42,14 +42,27 @@ jobs:
         package: frontend/dist
 
     - name: Wait for deployment
-      run: sleep 30
+      run: sleep 120
 
-    - name: Health check
+    - name: Health check (with retries)
       run: |
-        response=$(curl -s -o /dev/null -w "%{http_code}" https://lama-dev-frontend-vite.azurewebsites.net)
-        echo "Health check status: $response"
-        if [ "$response" = "200" ] || [ "$response" = "301" ] || [ "$response" = "302" ]; then
-          echo "✅ Frontend Vite deployed successfully"
-        else
-          echo "⚠️  Frontend returned status $response"; exit 1
-        fi
+        attempts=0
+        max_attempts=10
+        sleep_between=20
+        url="https://lama-dev-frontend-vite.azurewebsites.net"
+        while [ $attempts -lt $max_attempts ]; do
+          response=$(curl -s -o /dev/null -w "%{http_code}" "$url")
+          echo "Health check attempt $((attempts+1))/$max_attempts: $response"
+          if [ "$response" = "200" ] || [ "$response" = "301" ] || [ "$response" = "302" ]; then
+            echo "✅ Frontend Vite deployed successfully"
+            exit 0
+          fi
+          attempts=$((attempts+1))
+          if [ $attempts -lt $max_attempts ]; then
+            echo "Waiting $sleep_between seconds before next attempt..."
+            sleep $sleep_between
+          fi
+        done
+        echo "⚠️  Frontend health check failed after $max_attempts attempts"
+        echo "Last response code: $response"
+        exit 1

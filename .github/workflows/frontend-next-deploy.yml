@@ -54,13 +54,13 @@ jobs:
         package: frontend-next
 
     - name: Wait for deployment
-      run: sleep 30
+      run: sleep 120
 
     - name: Health check (with retries)
       run: |
         attempts=0
-        max_attempts=6
-        sleep_between=30
+        max_attempts=10
+        sleep_between=20
         url="https://lama-dev-frontend.azurewebsites.net"
         while [ $attempts -lt $max_attempts ]; do
           response=$(curl -s -o /dev/null -w "%{http_code}" "$url")
@@ -70,8 +70,11 @@ jobs:
             exit 0
           fi
           attempts=$((attempts+1))
-          echo "Waiting $sleep_between seconds before next attempt..."
-          sleep $sleep_between
+          if [ $attempts -lt $max_attempts ]; then
+            echo "Waiting $sleep_between seconds before next attempt..."
+            sleep $sleep_between
+          fi
         done
         echo "⚠️  Frontend health check failed after $max_attempts attempts"
+        echo "Last response code: $response"
         exit 1
