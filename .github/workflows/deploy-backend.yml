@@ -35,9 +35,11 @@ jobs:
       working-directory: ${{ env.AZURE_WEBAPP_PACKAGE_PATH }}
       run: npm run build
 
-    - name: Clean node_modules before deploy
+    - name: Install production dependencies
       working-directory: ${{ env.AZURE_WEBAPP_PACKAGE_PATH }}
-      run: rm -rf node_modules
+      run: |
+        rm -rf node_modules
+        npm ci --legacy-peer-deps --omit=dev
 
     - name: Deploy to Azure Web App (publish profile)
       uses: azure/webapps-deploy@v2
