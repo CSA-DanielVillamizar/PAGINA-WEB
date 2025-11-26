@@ -40,6 +40,12 @@ jobs:
       env:
         NEXT_PUBLIC_API_BASE_URL: https://lama-dev-backend.azurewebsites.net
 
+    - name: Create .deployment file to disable Oryx
+      working-directory: ./frontend-next
+      run: |
+        echo '[config]' > .deployment
+        echo 'SCM_DO_BUILD_DURING_DEPLOYMENT = false' >> .deployment
+
     - name: Deploy to Azure Web App (publish profile)
       uses: azure/webapps-deploy@v2
       with:
