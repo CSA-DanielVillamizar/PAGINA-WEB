@@ -62,15 +62,15 @@ jobs:
         az webapp restart \
           --name lama-dev-frontend \
           --resource-group rg-lama-dev
-
-    - name: Wait for deployment
-      run: sleep 120
+        
+        echo "Waiting 3 minutes for Next.js to warm up after restart..."
+        sleep 180
 
     - name: Health check (with retries)
       run: |
         attempts=0
-        max_attempts=10
-        sleep_between=20
+        max_attempts=15
+        sleep_between=30
         url="https://lama-dev-frontend.azurewebsites.net"
         while [ $attempts -lt $max_attempts ]; do
           response=$(curl -s -o /dev/null -w "%{http_code}" "$url")
