@@ -35,7 +35,7 @@ jobs:
       - name: Package for deployment
         run: |
           mkdir -p ../deploy-package
-          cp -r dist package.json package-lock.json .deployment ../deploy-package/
+          cp -r dist node_modules package.json package-lock.json .deployment ../deploy-package/
         shell: bash
 
       - name: Upload artifact
