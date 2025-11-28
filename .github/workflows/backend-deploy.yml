@@ -26,8 +26,12 @@ jobs:
           cache: 'npm'
           cache-dependency-path: backend/package-lock.json
 
-      - name: Install dependencies
-        run: npm ci
+      - name: Install dependencies (production only)
+        env:
+          NODE_ENV: production
+        run: |
+          npm ci --omit=dev
+          npm prune --omit=dev
 
       - name: Build
         run: npm run build
@@ -35,7 +39,7 @@ jobs:
       - name: Package for deployment
         run: |
           mkdir -p ../deploy-package
-          cp -r dist node_modules package.json package-lock.json .deployment ../deploy-package/
+          cp -r dist node_modules package.json .deployment ../deploy-package/
         shell: bash
 
       - name: Upload artifact
@@ -65,6 +69,13 @@ jobs:
           tenant-id: ${{ secrets.AZURE_TENANT_ID }}
           subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
 
+      - name: Ensure Run-From-Package and Oryx disabled
+        run: |
+          az webapp config appsettings set \
+            --resource-group lama-rg-dev01 \
+            --name lama-backend-dev0001 \
+            --settings WEBSITE_RUN_FROM_PACKAGE=1 SCM_DO_BUILD_DURING_DEPLOYMENT=false
+
       - name: Configure Web App startup
         run: |
           az webapp config set \
@@ -75,19 +86,29 @@ jobs:
       - name: Deploy to Web App
         run: |
           cd backend-deploy
-          zip -r ../backend.zip .
+          zip -r -q ../backend.zip .
           cd ..
-          az webapp deploy \
-            --resource-group lama-rg-dev01 \
-            --name lama-backend-dev0001 \
-            --src-path backend.zip \
-            --type zip \
-            --restart true
+          echo "Starting deployment (with retries)..."
+          set +e
+          for i in 1 2 3; do
+            az webapp deploy \
+              --resource-group lama-rg-dev01 \
+              --name lama-backend-dev0001 \
+              --src-path backend.zip \
+              --type zip \
+              --restart true && success=1 && break || success=0
+            echo "Deploy attempt $i failed; waiting before retry...";
+            sleep 20;
+          done
+          if [ "$success" != "1" ]; then
+            echo "Deployment failed after retries";
+            exit 1;
+          fi
 
       - name: Verify deployment
         run: |
           echo "Waiting for app to start..."
-          sleep 30
+          sleep 45
           curl -f https://lama-backend-dev0001.azurewebsites.net/health || echo "Health check failed - check logs"
 
 # Comentarios:
