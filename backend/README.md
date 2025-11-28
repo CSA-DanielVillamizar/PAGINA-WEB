@@ -306,4 +306,5 @@ curl -X POST http://localhost:3000/api/roles/seed
 
 Esto creará los roles: Presidente, Vicepresidente, Secretario, Tesorero, GerenciaNegocios, MTO, Administrador, CommunityManager, Miembro, Invitado.
 #   T r i g g e r   d e p l o y  
+ #   D e p l o y   t r i g g e r  
  
