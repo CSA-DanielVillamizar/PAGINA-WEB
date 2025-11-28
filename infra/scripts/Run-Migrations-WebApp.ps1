@@ -40,7 +40,21 @@ $scmUrl = "https://$WebAppName.scm.azurewebsites.net/api/command"
 Write-Info "Invocando comando en Kudu: $Command"
 $body = @{ command = $Command; dir = 'site/wwwroot' } | ConvertTo-Json
 $response = Invoke-RestMethod -Uri $scmUrl -Method POST -Headers @{ Authorization = "Basic $auth"; Accept='application/json' } -ContentType 'application/json' -Body $body
-Write-Info "Estado: $($response.exit_code)"
-Write-Info "Salida:\n$($response.output)"
-if($response.exit_code -ne 0){ Write-Err "Migraciones fallaron."; exit 1 }
-Write-Info "Migraciones aplicadas correctamente."; 
+# Algunas instancias de Kudu devuelven propiedades diferentes según versión.
+# Normalizamos lectura de estado y salida.
+$exitCode = $null
+if($response.PSObject.Properties.Name -contains 'exit_code') { $exitCode = $response.exit_code }
+elseif($response.PSObject.Properties.Name -contains 'ExitCode') { $exitCode = $response.ExitCode }
+elseif($response.PSObject.Properties.Name -contains 'status') { $exitCode = $response.status }
+else { $exitCode = 0 } # si no hay código, asumimos 0 y mostramos salida
+
+$output = $null
+if($response.PSObject.Properties.Name -contains 'output') { $output = $response.output }
+elseif($response.PSObject.Properties.Name -contains 'Output') { $output = $response.Output }
+elseif($response.PSObject.Properties.Name -contains 'error') { $output = $response.error }
+else { $output = ($response | ConvertTo-Json -Depth 5) }
+
+Write-Info "Estado: $exitCode"
+Write-Info "Salida:\n$output"
+if([int]$exitCode -ne 0){ Write-Err "Migraciones fallaron."; exit 1 }
+Write-Info "Migraciones aplicadas correctamente." 

@@ -292,31 +292,96 @@ El frontend estará en `http://localhost:5173`
 
 ## 📦 Despliegue a Azure
 
-### 1. Crear Recursos Azure
+### Backend - Local Git Deployment
 
-```powershell
-cd infrastructure
-az deployment group create \
-  --resource-group rg-lama-medellin \
-  --template-file bicep/main.bicep \
-  --parameters location=eastus
+Scripts automatizados disponibles en `backend/`:
+
+1. **`deploy-local-git.ps1`** (PowerShell local / Windows)
+2. **`deploy-cloudshell.sh`** (Bash para Azure Cloud Shell - **RECOMENDADO**)
+
+#### Requisitos previos
+
+- App Service creado con App Settings configurados (DB_HOST, DB_NAME, DB_USER, DB_PASS, NODE_ENV=production, PORT=8080, WEBSITE_STARTUP_FILE, SCM_DO_BUILD_DURING_DEPLOYMENT=true).
+- Basic Auth habilitado en Deployment Center.
+- Paquete sin `node_modules` en repositorio (Oryx los instalará).
+
+#### Uso rápido (Cloud Shell recomendado)
+
+```bash
+cd backend
+bash deploy-cloudshell.sh lama-dev-backend rg-lama-dev
 ```
 
-### 2. Configurar Azure Pipelines
+#### PowerShell local
+
+```powershell
+pwsh .\backend\deploy-local-git.ps1 -AppName lama-dev-backend -ResourceGroup rg-lama-dev -AutoConfirm -TailLogs
+```
+
+#### Rotar credenciales publicación
+
+```bash
+az webapp deployment reset-publishing-profile -g rg-lama-dev -n lama-dev-backend
+az webapp deployment list-publishing-credentials -g rg-lama-dev -n lama-dev-backend --query "{user:publishingUserName, pass:publishingPassword}"
+```
+
+#### Verificación Health
+
+```bash
+curl -s https://lama-dev-backend.azurewebsites.net/health | jq
+```
+
+Si no responde o devuelve 503, revisar logs:
+
+```bash
+az webapp log tail -g rg-lama-dev -n lama-dev-backend
+```
+
+#### Migraciones (manual)
+
+```bash
+az webapp ssh -g rg-lama-dev -n lama-dev-backend
+npm run migration:run
+exit
+```
+
+#### Limpieza de remote inseguro
+
+Si se embebieron credenciales en el remote:
+
+```bash
+git remote remove azure
+git remote add azure https://lama-dev-backend.scm.azurewebsites.net:443/lama-dev-backend.git
+```
+
+#### Seguridad
+
+No subir secretos (contraseñas DB, JWT_SECRET) al repositorio. Usar App Settings.
+
+### Frontend - Azure Pipelines
 
 1. Crear Service Connection en Azure DevOps
 2. Importar `infrastructure/azure-pipelines.yml`
 3. Configurar variable groups:
    - `AZURE_SUBSCRIPTION`
-   - `BACKEND_APP_NAME`
    - `FRONTEND_APP_NAME`
-   - Variables de entorno (DB_HOST, AZURE_STORAGE_CONNECTION_STRING, etc.)
+   - Variables de entorno (VITE_API_URL, etc.)
 
-### 3. Trigger Pipeline
+### Infraestructura - Bicep Templates
 
-```powershell
-git push origin main
+```bash
+cd infra
+bash deploy-cloud-shell.sh
 ```
+
+El script crea automáticamente:
+
+- Resource Group `rg-lama-dev`
+- PostgreSQL Flexible Server `lama-dev-pg`
+- Storage Account con suffix aleatorio
+- App Service Plan Linux B1 `lama-dev-plan`
+- Web App `lama-dev-backend` con Managed Identity
+- App Settings iniciales y health check configuration
 
 ## 🧪 Testing
 

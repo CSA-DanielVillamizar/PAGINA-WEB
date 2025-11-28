@@ -5,6 +5,7 @@ interface User {
   id: string
   nombreCompleto: string
   correo: string
+  rol?: string
   roles: string[]
 }
 

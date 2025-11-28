@@ -1,0 +1,133 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 0 0% 100%;
+    --foreground: 222.2 84% 4.9%;
+    --card: 0 0% 100%;
+    --card-foreground: 222.2 84% 4.9%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 222.2 84% 4.9%;
+    --primary: 221.2 83.2% 53.3%;
+    --primary-foreground: 210 40% 98%;
+    --secondary: 210 40% 96.1%;
+    --secondary-foreground: 222.2 47.4% 11.2%;
+    --muted: 210 40% 96.1%;
+    --muted-foreground: 215.4 16.3% 46.9%;
+    --accent: 210 40% 96.1%;
+    --accent-foreground: 222.2 47.4% 11.2%;
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 210 40% 98%;
+    --border: 214.3 31.8% 91.4%;
+    --input: 214.3 31.8% 91.4%;
+    --ring: 221.2 83.2% 53.3%;
+    --radius: 0.5rem;
+  }
+
+  .dark {
+    /* Adventure Dark Theme - Negro institucional + Amarillo neón */
+    --background: 0 0% 0%; /* #000000 Negro absoluto */
+    --foreground: 0 0% 100%; /* #FFFFFF Blanco puro */
+    --card: 0 0% 11%; /* #1C1C1C Gris grafito */
+    --card-foreground: 0 0% 100%;
+    --popover: 0 0% 11%;
+    --popover-foreground: 0 0% 100%;
+    --primary: 48 100% 50%; /* #FFD200 Amarillo neón institucional */
+    --primary-foreground: 0 0% 0%;
+    --secondary: 0 0% 13%; /* #222222 Gris grafito claro */
+    --secondary-foreground: 0 0% 100%;
+    --muted: 0 0% 13%;
+    --muted-foreground: 0 0% 64%;
+    --accent: 48 100% 50%; /* Amarillo neón */
+    --accent-foreground: 0 0% 0%;
+    --destructive: 0 62.8% 30.6%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 0 0% 13%; /* #222222 */
+    --input: 0 0% 13%;
+    --ring: 48 100% 50%; /* Amarillo neón para focus */
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground;
+    font-feature-settings: "rlig" 1, "calt" 1;
+  }
+}
+
+@layer components {
+  /* Adventure Glow Effect */
+  .glow-adventure {
+    box-shadow: 0 0 10px rgba(255, 210, 0, 0.3),
+                0 0 20px rgba(255, 210, 0, 0.2),
+                0 0 30px rgba(255, 210, 0, 0.1);
+  }
+
+  .glow-adventure-sm {
+    box-shadow: 0 0 5px rgba(255, 210, 0, 0.4),
+                0 0 10px rgba(255, 210, 0, 0.2);
+  }
+
+  /* Border Glow */
+  .border-glow-adventure {
+    border: 2px solid hsl(var(--primary));
+    box-shadow: 0 0 10px rgba(255, 210, 0, 0.5),
+                inset 0 0 10px rgba(255, 210, 0, 0.1);
+  }
+
+  /* Smooth Transitions */
+  .transition-adventure {
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  /* Button Primary Adventure */
+  .btn-adventure {
+    @apply bg-primary text-primary-foreground px-6 py-3 rounded-lg font-semibold;
+    @apply hover:glow-adventure transition-adventure;
+    @apply active:scale-95;
+  }
+
+  /* Card Adventure */
+  .card-adventure {
+    @apply bg-card border border-border rounded-xl p-6;
+    @apply hover:border-primary/50 transition-adventure;
+  }
+
+  /* Input Adventure */
+  .input-adventure {
+    @apply bg-secondary border border-border rounded-lg px-4 py-3;
+    @apply focus:border-primary focus:glow-adventure-sm outline-none;
+    @apply transition-adventure;
+  }
+
+  /* Text Glow */
+  .text-glow-adventure {
+    text-shadow: 0 0 10px rgba(255, 210, 0, 0.5),
+                 0 0 20px rgba(255, 210, 0, 0.3);
+  }
+}
+
+@layer utilities {
+  /* Scrollbar Adventure */
+  .scrollbar-adventure::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+
+  .scrollbar-adventure::-webkit-scrollbar-track {
+    @apply bg-secondary;
+  }
+
+  .scrollbar-adventure::-webkit-scrollbar-thumb {
+    @apply bg-primary/30 rounded-full;
+  }
+
+  .scrollbar-adventure::-webkit-scrollbar-thumb:hover {
+    @apply bg-primary/50;
+  }
+}

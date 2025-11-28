@@ -1,0 +1,193 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 0 0% 0%; /* Negro absoluto #000000 */
+    --foreground: 0 0% 100%; /* Blanco puro */
+    --card: 0 0% 11%; /* #1C1C1C */
+    --card-foreground: 0 0% 100%;
+    --popover: 0 0% 11%;
+    --popover-foreground: 0 0% 100%;
+    --primary: 45 100% 50%; /* Amarillo neón #FFD200 */
+    --primary-foreground: 0 0% 0%;
+    --secondary: 0 0% 13%; /* #222222 */
+    --secondary-foreground: 0 0% 100%;
+    --muted: 0 0% 13%;
+    --muted-foreground: 0 0% 60%;
+    --accent: 45 100% 50%;
+    --accent-foreground: 0 0% 0%;
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 0 0% 13%;
+    --input: 0 0% 13%;
+    --ring: 45 100% 50%;
+    --radius: 0.5rem;
+  }
+
+  .dark {
+    --background: 0 0% 0%;
+    --foreground: 0 0% 100%;
+    --card: 0 0% 11%;
+    --card-foreground: 0 0% 100%;
+    --popover: 0 0% 11%;
+    --popover-foreground: 0 0% 100%;
+    --primary: 45 100% 50%;
+    --primary-foreground: 0 0% 0%;
+    --secondary: 0 0% 13%;
+    --secondary-foreground: 0 0% 100%;
+    --muted: 0 0% 13%;
+    --muted-foreground: 0 0% 60%;
+    --accent: 45 100% 50%;
+    --accent-foreground: 0 0% 0%;
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 0 0% 13%;
+    --input: 0 0% 13%;
+    --ring: 45 100% 50%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground;
+    font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  }
+}
+
+/* ============================================
+   ADVENTURE THEME - Efectos Glow y Utilidades
+   ============================================ */
+
+@layer utilities {
+  /* Glow completo amarillo neón */
+  .glow-adventure {
+    box-shadow: 
+      0 0 10px rgba(255, 210, 0, 0.3),
+      0 0 20px rgba(255, 210, 0, 0.2),
+      0 0 30px rgba(255, 210, 0, 0.1);
+  }
+
+  /* Glow sutil para inputs */
+  .glow-adventure-sm {
+    box-shadow: 
+      0 0 5px rgba(255, 210, 0, 0.2),
+      0 0 10px rgba(255, 210, 0, 0.1);
+  }
+
+  /* Glow en bordes */
+  .border-glow-adventure {
+    border: 1px solid rgba(255, 210, 0, 0.5);
+    box-shadow: 0 0 10px rgba(255, 210, 0, 0.3);
+  }
+
+  /* Text glow para títulos */
+  .text-glow-adventure {
+    text-shadow: 
+      0 0 10px rgba(255, 210, 0, 0.5),
+      0 0 20px rgba(255, 210, 0, 0.3);
+  }
+
+  /* Transiciones suaves Adventure */
+  .transition-adventure {
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  /* Scrollbar personalizado */
+  .scrollbar-adventure::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+
+  .scrollbar-adventure::-webkit-scrollbar-track {
+    background: hsl(var(--background));
+  }
+
+  .scrollbar-adventure::-webkit-scrollbar-thumb {
+    background: hsl(var(--primary));
+    border-radius: 4px;
+  }
+
+  .scrollbar-adventure::-webkit-scrollbar-thumb:hover {
+    background: hsl(var(--primary) / 0.8);
+  }
+}
+
+/* ============================================
+   COMPONENTES BASE ADVENTURE
+   ============================================ */
+
+@layer components {
+  /* Botón Adventure estándar */
+  .btn-adventure {
+    @apply bg-primary text-black font-semibold px-6 py-3 rounded-lg;
+    @apply glow-adventure-sm hover:glow-adventure;
+    @apply transition-adventure hover:scale-105;
+    @apply focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 focus:ring-offset-black;
+  }
+
+  /* Card Adventure con efecto hover */
+  .card-adventure {
+    @apply bg-card border border-border rounded-lg p-6;
+    @apply transition-adventure hover:border-primary/50 hover:shadow-lg;
+  }
+
+  .card-adventure:hover {
+    box-shadow: 0 0 20px rgba(255, 210, 0, 0.1);
+  }
+
+  /* Input Adventure */
+  .input-adventure {
+    @apply bg-input border border-border rounded-lg px-4 py-3 text-foreground;
+    @apply focus:border-primary focus:glow-adventure-sm;
+    @apply transition-adventure;
+  }
+}
+
+/* ============================================
+   ANIMACIONES PERSONALIZADAS
+   ============================================ */
+
+@keyframes pulse-glow {
+  0%, 100% {
+    box-shadow: 
+      0 0 10px rgba(255, 210, 0, 0.3),
+      0 0 20px rgba(255, 210, 0, 0.2);
+  }
+  50% {
+    box-shadow: 
+      0 0 20px rgba(255, 210, 0, 0.5),
+      0 0 40px rgba(255, 210, 0, 0.3);
+  }
+}
+
+.animate-pulse-glow {
+  animation: pulse-glow 2s ease-in-out infinite;
+}
+
+@keyframes float {
+  0%, 100% {
+    transform: translateY(0px);
+  }
+  50% {
+    transform: translateY(-10px);
+  }
+}
+
+.animate-float {
+  animation: float 3s ease-in-out infinite;
+}
+
+/* ============================================
+   RESPONSIVE HELPERS
+   ============================================ */
+
+@layer utilities {
+  .container-adventure {
+    @apply max-w-7xl mx-auto px-4 sm:px-6 lg:px-8;
+  }
+}

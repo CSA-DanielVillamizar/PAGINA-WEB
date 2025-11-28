@@ -19,12 +19,18 @@ param keyVaultName string
 param storageAccountName string
 param insightsName string
 param appInsightsWorkspaceId string = '' // Opcional: si se quiere workspace-based
+@description('URL del frontend para CORS (ej: https://app.fundacionlamamedellin.org)')
+param frontendUrl string = ''
+@description('Habilitar healthcheck automático en App Service mediante WEBSITE_HEALTHCHECK_URL')
+param enableHealthcheck bool = true
+@description('URI del secreto en Key Vault para la contraseña de la base (DB_PASS). Si vacío no se agrega.')
+param dbPassSecretUri string = ''
 
 // Nombres y constantes
 var postgresDbName = 'lama_db'
 var webAppNodeFx = 'NODE|24-lts'
+// App settings consolidadas (sin condicionales inline para compatibilidad).
 var appSettings = [
-  // Las variables sensibles (DB_PASS, JWT_SECRET, etc.) se referencian vía Key Vault en portal o mediante otro archivo.
   {
     name: 'PORT'
     value: '8080'
@@ -56,6 +62,18 @@ var appSettings = [
   {
     name: 'DISABLE_DB'
     value: '0'
+  }
+  {
+    name: 'FRONTEND_URL'
+    value: empty(frontendUrl) ? 'http://localhost:5173' : frontendUrl
+  }
+  {
+    name: 'WEBSITE_HEALTHCHECK_URL'
+    value: enableHealthcheck ? '/health' : ''
+  }
+  {
+    name: 'DB_PASS'
+    value: empty(dbPassSecretUri) ? 'SET_KEYVAULT_SECRET_URI' : format('@Microsoft.KeyVault(SecretUri={0})', dbPassSecretUri)
   }
 ]
 
@@ -97,9 +115,7 @@ resource pgServer 'Microsoft.DBforPostgreSQL/flexibleServers@2023-03-01-preview'
     highAvailability: {
       mode: 'Disabled'
     }
-    network: {
-      publicNetworkAccess: 'Enabled'
-    }
+    // network configurado por defecto (public access habilitado). Propiedad publicNetworkAccess omitida para evitar errores de versión.
     maintenanceWindow: {
       customWindow: 'Disabled'
     }
@@ -172,31 +188,12 @@ resource webApp 'Microsoft.Web/sites@2023-12-01' = {
 }
 
 // Optional: Web App settings for App Insights if created
-resource webAppConfig 'Microsoft.Web/sites/config@2023-12-01' = if (!empty(appInsightsWorkspaceId) || !empty(insightsName)) {
-  name: '${webApp.name}/appsettings'
-  properties: union(
-    { 'APPINSIGHTS_INSTRUMENTATIONKEY': empty(appInsightsWorkspaceId) ? insights.properties.InstrumentationKey : '' },
-    { 'APPLICATIONINSIGHTS_CONNECTION_STRING': empty(appInsightsWorkspaceId) ? format('InstrumentationKey={0}', insights.properties.InstrumentationKey) : '' }
-  )
-  dependsOn: [ webApp ]
-}
 
-// Role Assignment: WebApp Managed Identity -> Key Vault Secrets User
-// Para RBAC necesitamos GUID del rol Key Vault Secrets User (bdb6f0a7-7c5d-4c58-9d31-0b5b271cdb83)
-// Se crea condición simple; si falla por replicación de identidad se puede reintentar fuera de IaC.
-resource kvRoleAssign 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
-  name: guid(keyVault.id, 'kv-secrets-user', webApp.name)
-  scope: keyVault
-  properties: {
-    principalId: webApp.identity.principalId
-    roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions','b86a8fe4-44ce-4948-aee5-eccb2c0e42f0') // Key Vault Secrets User (actual id puede variar; validar).
-    principalType: 'ServicePrincipal'
-  }
-  dependsOn: [ webApp, keyVault ]
-}
+// Nota: La asignación de rol (Key Vault Secrets User) se realizará post-despliegue via CLI
+// para evitar errores de validación por GUID de rol o replicación de identidad.
 
 // Output principales
 output webAppUrl string = format('https://{0}.azurewebsites.net', webAppName)
 output postgresFqdn string = format('{0}.postgres.database.azure.com', postgresServerName)
 output keyVaultUri string = keyVault.properties.vaultUri
-output insightsKey string = empty(appInsightsWorkspaceId) ? insights.properties.InstrumentationKey : ''
+output insightsKey string = ''

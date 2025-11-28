@@ -1,0 +1,11 @@
+node_modules/
+dist/
+*.log
+.env
+.env.local
+.env.*
+deploy-backend.zip
+backend-logs.zip
+backend-deploy.zip
+*.zip
+.tmp/

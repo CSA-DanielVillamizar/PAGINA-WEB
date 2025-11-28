@@ -1,6 +1,7 @@
 import { Controller, Get } from '@nestjs/common'
 import { ApiOperation, ApiTags } from '@nestjs/swagger'
 import { HealthService } from './health.service'
+import { getDatabaseStatus, getDatabaseError } from '../../database/database.provider'
 
 /**
  * Controlador de salud del servicio.
@@ -19,11 +20,16 @@ export class HealthController {
   @Get()
   @ApiOperation({ summary: 'Verificar estado del backend' })
   getStatus() {
+    // Estado resumido de la base de datos sin bloquear el endpoint.
+    const dbStatus = getDatabaseStatus()
+    const dbErr = getDatabaseError()
     return {
       status: 'ok',
       service: 'lama-backend',
       timestamp: new Date().toISOString(),
-      version: process.env.APP_VERSION || '1.0.0'
+      version: process.env.APP_VERSION || '1.0.0',
+      database: dbStatus,
+      databaseError: dbStatus === 'error' ? dbErr?.message : undefined
     }
   }
 
@@ -40,7 +46,9 @@ export class HealthController {
     return {
       status: checks.overall ? 'ready' : 'degraded',
       timestamp: new Date().toISOString(),
-      ...checks
+      database: getDatabaseStatus(),
+      keyVault: checks.keyVault,
+      overall: checks.overall
     }
   }
 }

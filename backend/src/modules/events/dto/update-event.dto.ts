@@ -1,43 +1,8 @@
-import { IsString, IsOptional, IsDateString, IsInt, Min, Length } from 'class-validator'
+import { PartialType } from '@nestjs/mapped-types';
+import { CreateEventDto } from './create-event.dto';
 
 /**
- * DTO de actualización parcial de evento.
- * Todos los campos son opcionales para permitir actualizaciones incrementales.
+ * DTO para actualizar un evento existente
+ * Todos los campos son opcionales
  */
-export class UpdateEventDto {
-  @IsOptional()
-  @IsString()
-  @Length(3, 255)
-  title?: string
-
-  @IsOptional()
-  @IsString()
-  description?: string
-
-  @IsOptional()
-  @IsDateString()
-  eventDate?: string
-
-  @IsOptional()
-  @IsString()
-  @Length(3, 255)
-  location?: string
-
-  @IsOptional()
-  @IsString()
-  status?: string
-
-  @IsOptional()
-  @IsInt()
-  @Min(0)
-  capacity?: number
-
-  @IsOptional()
-  @IsInt()
-  @Min(0)
-  registeredCount?: number
-
-  @IsOptional()
-  @IsString()
-  imageUrl?: string
-}
+export class UpdateEventDto extends PartialType(CreateEventDto) {}

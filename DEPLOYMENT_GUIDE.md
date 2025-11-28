@@ -225,3 +225,91 @@ For production, consider:
 - App Service Plan with auto-scale
 - Azure Front Door + CDN
 - Redis Cache for sessions
+ 
+## Actualización Arquitectura Seleccionada (WebApp + Storage Static Website)
+
+La implementación activa usará Storage Account para servir el frontend (sitio estático) en vez de Azure Static Web Apps. Pasos adicionales:
+
+### 1. Build Frontend y Publicación en Storage
+```powershell
+cd frontend
+npm ci
+npm run build
+
+# Habilitar sitio estático (contenedor $web)
+az storage blob service-properties update --account-name <storageAccountName> --static-website --index-document index.html --404-document index.html
+
+# Subir archivos generados (dist) al contenedor $web
+az storage blob upload-batch -s dist -d $web --account-name <storageAccountName>
+
+# Obtener URL pública (formato https://<storageAccountName>.z13.web.core.windows.net)
+```
+
+### 2. Actualizar FRONTEND_URL en la WebApp
+```powershell
+az webapp config appsettings set -g lama-rg-dev -n <webAppName> --settings FRONTEND_URL=https://<storageAccountName>.z13.web.core.windows.net
+```
+
+### 3. Variables / Secretos Requeridos (Backend)
+| Variable | Fuente | Uso |
+|---------|--------|-----|
+| DB_HOST | Bicep Output / FQDN | Conexión PostgreSQL |
+| DB_PORT | 5432 | Puerto DB |
+| DB_USER | postgresAdminUser | Login DB |
+| DB_PASS | Key Vault Secret (DB-PASSWORD) | Password DB |
+| DB_NAME | lama_db | BD lógica |
+| JWT_SECRET | Key Vault Secret | Firmar tokens |
+| SMTP_HOST | Config fijo | Email |
+| SMTP_PORT | 587 | Email |
+| SMTP_SECURE | false | Email |
+| SMTP_USER | Buzón fundación | Email |
+| SMTP_PASS | Key Vault Secret (SMTP-PASS) | Email |
+| INSCRIPTIONS_RECEIVER | Email destino | Notificaciones |
+| FRONTEND_URL | Static Website URL | CORS / enlaces |
+| NODE_ENV | production | Modo runtime |
+| PORT | 8080 | Puerto interno App Service |
+
+### 4. Limpieza de Carpetas/Archivos Obsoletos
+Se recomienda eliminar o archivar para reducir ruido:
+```
+frontend-next/
+frontend-next-deploy/
+app-v2/
+dist-frontend-zip/
+temp-deploy/
+temp-extract/
+backend-logs/ (si no se requieren históricos)
+frontend-logs/
+webapp-logs/
+*.zip artefactos antiguos de deploy (mantener solo el último válido)
+DEPLOYMENT_GUIDE_AZURE.md (redundante con esta guía)
+```
+Antes de borrar, confirmar que no hay pipelines consumiendo estos artefactos.
+
+### 5. Migraciones DB vía Kudu (alternativa rápida)
+Si la WebApp ya tiene el build:
+```powershell
+Invoke-RestMethod -Uri https://<webAppName>.scm.azurewebsites.net/api/command -Method POST -Headers @{ Authorization = 'Basic <publishingBasicAuth>' } -Body '{"command":"npm run migrate","dir":"site/wwwroot"}' -ContentType 'application/json'
+```
+Se puede usar el script `infra/scripts/Run-Migrations-WebApp.ps1` con parámetros RG y nombre de WebApp.
+
+### 6. Checklist Rápido Pre-Producción
+- [ ] Todos los secretos creados en Key Vault
+- [ ] Role Assignment de Managed Identity al Key Vault (Key Vault Secrets User)
+- [ ] Migraciones aplicadas sin errores
+- [ ] FRONTEND_URL apuntando al dominio final
+- [ ] Health endpoint `/health` devuelve 200
+- [ ] Logs sin excepciones recurrentes
+- [ ] CORS: solicitudes desde dominio frontend aceptadas
+- [ ] SMTP diagnostic OK
+
+### 7. Dominio Personalizado para Frontend (opcional)
+Crear CNAME del dominio (ej: www.fundacionlamamedellin.org) hacia el host del static website (o usar CDN/Front Door). Para Storage Static Website se suele usar Azure CDN o Front Door para HTTPS con dominio propio.
+
+### 8. Próximos Pasos de Endurecimiento
+- Activar Private Access / VNet Integration para PostgreSQL (eliminar acceso público)
+- Añadir Front Door + WAF para proteger frontend y backend
+- Rotación automática de secretos críticos (Key Vault + pipeline)
+- Alertas en Application Insights (latencia, errores 5xx) y Health check App Service
+
+Fin de actualización.

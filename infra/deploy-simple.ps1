@@ -1,91 +1,102 @@
-# Script simplificado para desplegar recursos en Azure
+# Script de despliegue simplificado para desarrollo
+# Sin Key Vault - solo lo esencial
+
 param(
-    [string]$ResourceGroup = "lama-foundation-rg",
-    [string]$Location = "centralus"
+    [string]$Location = "centralus",
+    [string]$Environment = "dev"
 )
 
-$ErrorActionPreference = "Continue"
-$env:AZURE_CLI_DISABLE_CONNECTION_VERIFICATION = "1"
+$ErrorActionPreference = "Stop"
 
-Write-Host "================================" -ForegroundColor Cyan
-Write-Host "Desplegando recursos en Azure" -ForegroundColor Cyan
-Write-Host "================================" -ForegroundColor Cyan
+$projectName = "lama"
+$resourceGroupName = "rg-$projectName-$Environment"
 
-# 1. Storage Account
-Write-Host "`n[1/3] Storage Account..." -ForegroundColor Yellow
-$storage = az storage account create `
-    --name lamastoragecus `
-    --resource-group $ResourceGroup `
+Write-Host "=== Despliegue Simplificado - Ambiente $Environment ===" -ForegroundColor Cyan
+
+# Verificar Azure CLI
+Write-Host "`n1. Verificando Azure CLI..." -ForegroundColor Yellow
+try {
+    $azVersion = az version --output json 2>$null | ConvertFrom-Json
+    if (-not $azVersion) {
+        Write-Error "Azure CLI no responde correctamente"
+    }
+} catch {
+    Write-Error "Azure CLI no está instalado o no funciona correctamente"
+}
+Write-Host "   Azure CLI: OK" -ForegroundColor Green
+
+# Crear Resource Group
+Write-Host "`n2. Creando Resource Group..." -ForegroundColor Yellow
+az group create `
+    --name $resourceGroupName `
     --location $Location `
-    --sku Standard_LRS `
-    --only-show-errors 2>&1
+    --output none
 
-if ($LASTEXITCODE -eq 0) {
-    Write-Host "✓ Storage creado" -ForegroundColor Green
-} else {
-    Write-Host "⚠ $storage" -ForegroundColor Yellow
+Write-Host "   Resource Group: $resourceGroupName" -ForegroundColor Green
+
+# Generar secretos
+Write-Host "`n3. Generando secretos..." -ForegroundColor Yellow
+$chars = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'
+$postgresPassword = -join ((1..20) | ForEach-Object { $chars[(Get-Random -Maximum $chars.Length)] }) + "!A1"
+$jwtSecret = -join ((1..32) | ForEach-Object { $chars[(Get-Random -Maximum $chars.Length)] })
+Write-Host "   Secretos generados" -ForegroundColor Green
+
+# Desplegar infraestructura
+Write-Host "`n4. Desplegando infraestructura..." -ForegroundColor Yellow
+Write-Host "   (Esto puede tomar 5-10 minutos)" -ForegroundColor Gray
+
+$deployment = az deployment group create `
+    --resource-group $resourceGroupName `
+    --template-file "main-dev-simple.bicep" `
+    --parameters `
+        location=$Location `
+        environment=$Environment `
+        projectName=$projectName `
+        postgresAdminPassword=$postgresPassword `
+        jwtSecret=$jwtSecret `
+        frontendUrl="http://localhost:5173" `
+    --output json | ConvertFrom-Json
+
+if ($LASTEXITCODE -ne 0) {
+    Write-Error "Falló el despliegue de infraestructura"
 }
 
-# 2. Key Vault
-Write-Host "`n[2/3] Key Vault..." -ForegroundColor Yellow
-$kv = az keyvault create `
-    --name lama-kv-centralus `
-    --resource-group $ResourceGroup `
-    --location $Location `
-    --enable-rbac-authorization `
-    --only-show-errors 2>&1
+Write-Host "   Despliegue completado" -ForegroundColor Green
 
-if ($LASTEXITCODE -eq 0) {
-    Write-Host "✓ Key Vault creado" -ForegroundColor Green
-} else {
-    Write-Host "⚠ $kv" -ForegroundColor Yellow
+# Obtener outputs
+$webAppName = $deployment.properties.outputs.webAppName.value
+$webAppUrl = $deployment.properties.outputs.webAppUrl.value
+$postgresHost = $deployment.properties.outputs.postgresHost.value
+$storageAccountName = $deployment.properties.outputs.storageAccountName.value
+
+# Guardar configuración
+Write-Host "`n5. Guardando configuración..." -ForegroundColor Yellow
+$config = @{
+    resourceGroup = $resourceGroupName
+    webAppName = $webAppName
+    webAppUrl = $webAppUrl
+    postgresHost = $postgresHost
+    postgresPassword = $postgresPassword
+    jwtSecret = $jwtSecret
+    storageAccountName = $storageAccountName
+    deploymentDate = (Get-Date).ToString("yyyy-MM-dd HH:mm:ss")
 }
 
-# 3. PostgreSQL
-Write-Host "`n[3/3] PostgreSQL (esto tarda varios minutos)..." -ForegroundColor Yellow
-$pg = az postgres flexible-server create `
-    --name lama-pg-centralus `
-    --resource-group $ResourceGroup `
-    --location $Location `
-    --admin-user pgadmin `
-    --admin-password "LAMAadmin2024!" `
-    --sku-name Standard_B1ms `
-    --tier Burstable `
-    --version 16 `
-    --storage-size 32 `
-    --backup-retention 7 `
-    --yes `
-    --only-show-errors 2>&1
+$config | ConvertTo-Json | Out-File ".env.$Environment.json" -Encoding UTF8
+Write-Host "   Configuración guardada en: infra/.env.$Environment.json" -ForegroundColor Green
 
-if ($LASTEXITCODE -eq 0) {
-    Write-Host "✓ PostgreSQL creado" -ForegroundColor Green
-    
-    # Crear database
-    Write-Host "   Creando base de datos..." -ForegroundColor Gray
-    az postgres flexible-server db create `
-        --resource-group $ResourceGroup `
-        --server-name lama-pg-centralus `
-        --database-name lama_db `
-        --only-show-errors
-    
-    # Firewall
-    Write-Host "   Configurando firewall..." -ForegroundColor Gray
-    az postgres flexible-server firewall-rule create `
-        --resource-group $ResourceGroup `
-        --name lama-pg-centralus `
-        --rule-name AllowAllAzureIps `
-        --start-ip-address 0.0.0.0 `
-        --end-ip-address 0.0.0.0 `
-        --only-show-errors
-        
-    Write-Host "✓ Database y firewall configurados" -ForegroundColor Green
-} else {
-    Write-Host "⚠ $pg" -ForegroundColor Yellow
-}
+# Resumen
+Write-Host "`n=== DESPLIEGUE COMPLETADO ===" -ForegroundColor Green
+Write-Host "`nRecursos creados:" -ForegroundColor Cyan
+Write-Host "  Resource Group: $resourceGroupName"
+Write-Host "  Web App: $webAppName"
+Write-Host "  URL: $webAppUrl"
+Write-Host "  PostgreSQL: $postgresHost"
+Write-Host "  Storage: $storageAccountName"
 
-Write-Host "`n================================" -ForegroundColor Cyan
-Write-Host "Verificando recursos..." -ForegroundColor Yellow
-az resource list -g $ResourceGroup --query "[].{Name:name, Type:type}" -o table
+Write-Host "`nPróximos pasos:" -ForegroundColor Yellow
+Write-Host "  1. Compilar backend: cd backend && npm run build"
+Write-Host "  2. Crear package: infra/scripts/Package-Backend.ps1"
+Write-Host "  3. Desplegar: az webapp deployment source config-zip -g $resourceGroupName -n $webAppName --src backend/deploy-backend.zip"
 
-Write-Host "`nSiguiente paso: Configurar App Registration" -ForegroundColor Yellow
-Write-Host "Ver: AZURE_PORTAL_SETUP.md (Sección 4)" -ForegroundColor Gray
+Write-Host "`nCredenciales guardadas en: infra/.env.$Environment.json" -ForegroundColor Cyan

@@ -1,0 +1,191 @@
+// Prisma schema para Fundación L.A.M.A. Medellín
+// Modelado con enfoque en relaciones y enums requeridos
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum RoleNombre {
+  Presidente
+  Vicepresidente
+  Secretario
+  Tesorero
+  GerenciaNegocios
+  MTO
+  Administrador
+  CommunityManager
+  Miembro
+  Invitado
+}
+
+enum TipoMiembro {
+  Prospecto
+  FullColor
+  Dama
+}
+
+enum EstadoUsuario {
+  Activo
+  Inactivo
+}
+
+enum EstadoVehiculo {
+  Activo
+  Vendido
+}
+
+enum TipoEvento {
+  Rodada
+  Asamblea
+  AniversarioCapitulos
+  RallyNacional
+  RallyRegional
+  RallySudamericano
+  RallyInternacional
+  LAMAdHierro
+  RutaIconica
+}
+
+enum EstadoEvento {
+  Proximo
+  Sancionado
+  Finalizado
+}
+
+model User {
+  id             String        @id @default(uuid())
+  nombreCompleto String
+  correo         String        @unique
+  nombreUsuario  String        @unique
+  telefono       String?
+  genero         String?
+  capitulo       String?
+  estado         EstadoUsuario @default(Activo)
+  fechaRegistro  DateTime      @default(now())
+  roles          UserRole[]
+  perfil         MemberProfile?
+  vehiculos      Vehicle[]
+  noticias       News[]        @relation("NoticiasAutor")
+  passwordResets PasswordResetToken[]
+}
+
+model Role {
+  id     String      @id @default(uuid())
+  nombre RoleNombre  @unique
+  users  UserRole[]
+}
+
+model UserRole {
+  userId String
+  roleId String
+  user   User   @relation(fields: [userId], references: [id])
+  role   Role   @relation(fields: [roleId], references: [id])
+  @@id([userId, roleId])
+}
+
+model MemberProfile {
+  id                 String       @id @default(uuid())
+  userId             String       @unique
+  cargoJunta         String?
+  tipoMiembro        TipoMiembro
+  profesion          String?
+  serviciosOfrecidos String?
+  biografia          String?
+  fotoPerfil         String?
+  fechaIngreso       DateTime?
+  user               User         @relation(fields: [userId], references: [id])
+}
+
+model Vehicle {
+  id        String         @id @default(uuid())
+  userId    String
+  marca     String
+  referencia String
+  color     String
+  anio      Int
+  placa     String
+  estado    EstadoVehiculo @default(Activo)
+  user      User           @relation(fields: [userId], references: [id])
+}
+
+model Event {
+  id          String       @id @default(uuid())
+  titulo      String
+  descripcion String?
+  fecha       DateTime
+  hora        String?
+  capitulo    String?
+  tipoEvento  TipoEvento
+  ubicacion   String?
+  estado      EstadoEvento @default(Proximo)
+}
+
+model Souvenir {
+  id          String  @id @default(uuid())
+  nombre      String
+  descripcion String?
+  precio      Decimal @db.Decimal(10,2)
+  imagenUrl   String?
+  inventario  Int      @default(0)
+  categoria   String
+}
+
+model News {
+  id               String   @id @default(uuid())
+  titulo           String
+  resumen          String?
+  contenido        String
+  imagenUrl        String?
+  fechaPublicacion DateTime @default(now())
+  autorId          String?
+  autor            User?    @relation("NoticiasAutor", fields: [autorId], references: [id])
+}
+
+model Subscription {
+  id               String   @id @default(uuid())
+  correo           String   @unique
+  fechaSuscripcion DateTime @default(now())
+  activo           Boolean  @default(true)
+}
+
+model Donation {
+  id            String   @id @default(uuid())
+  nombreDonante String
+  correo        String?
+  monto         Decimal  @db.Decimal(10,2)
+  fecha         DateTime @default(now())
+  mensajeOpcional String?
+}
+
+model ApplicationForm {
+  id            String   @id @default(uuid())
+  fotoUrl       String?
+  nombres       String
+  apellidos     String
+  identificacion String
+  direccion     String?
+  telefonos     String?
+  actividadLaboral String?
+  parejaNombre  String?
+  hijos         String?
+  vehiculoMarca String?
+  vehiculoReferencia String?
+  vehiculoPlaca String?
+  certificacionTexto String?
+  fechaCreacion DateTime @default(now())
+  pdfUrl        String?
+}
+
+model PasswordResetToken {
+  id        String   @id @default(uuid())
+  userId    String
+  token     String   @unique
+  expiresAt DateTime
+  used      Boolean  @default(false)
+  user      User     @relation(fields: [userId], references: [id])
+}

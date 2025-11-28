@@ -1,7 +1,7 @@
-import { Injectable, Logger, Optional } from '@nestjs/common'
-import { DataSource } from 'typeorm'
+import { Injectable, Logger } from '@nestjs/common'
 import { DefaultAzureCredential } from '@azure/identity'
 import { SecretClient } from '@azure/keyvault-secrets'
+import { AppDataSource } from '../../database/database.provider'
 
 /**
  * Servicio de verificación de salud y readiness.
@@ -12,8 +12,8 @@ export class HealthService {
   private readonly logger = new Logger(HealthService.name)
   private keyVaultClient?: SecretClient
 
-  constructor(@Optional() private readonly dataSource?: DataSource) {
-    // Skip Key Vault initialization if DB is disabled (minimal mode)
+  constructor() {
+    // Skip Key Vault initialization if DB is disabled (modo mínimo)
     if (process.env.DISABLE_DB === '1') {
       this.logger.log('DISABLE_DB=1: Skipping Key Vault initialization')
       return
@@ -48,17 +48,13 @@ export class HealthService {
    * Verifica conectividad básica con la base de datos ejecutando un query simple.
    */
   private async checkDatabase(): Promise<boolean> {
-    if (process.env.DISABLE_DB === '1') {
-      return true // Skip DB check when disabled
-    }
+    if (process.env.DISABLE_DB === '1') return true
     try {
-      if (!this.dataSource) {
-        return true // No datasource available
+      if (!AppDataSource.isInitialized) {
+        // No forzamos initialize aquí para mantener lazy init.
+        return false
       }
-      if (!this.dataSource!.isInitialized) {
-        await this.dataSource!.initialize()
-      }
-      await this.dataSource!.query('SELECT 1')
+      await AppDataSource.query('SELECT 1')
       return true
     } catch (err) {
       this.logger.error('Fallo chequeo DB: ' + (err as Error).message)

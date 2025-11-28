@@ -1,37 +1,75 @@
-import { IsString, IsOptional, IsDateString, IsInt, Min, Length } from 'class-validator'
+import { IsString, IsEnum, IsOptional, IsDateString, IsInt, Min, IsUrl, MaxLength, MinLength } from 'class-validator';
+import { EventType, EventDifficulty, EventStatus } from '../entities/event.entity';
 
 /**
- * DTO de creación de evento.
- * Valida los campos necesarios para crear un nuevo evento de la fundación.
- * Documentación técnica en español para facilitar el mantenimiento interno.
+ * DTO para crear un nuevo evento
+ * Sistema completo L.A.M.A. Medellín: rodadas, rallys, asambleas, eventos sociales
  */
 export class CreateEventDto {
   @IsString()
-  @Length(3, 255)
-  title: string
+  @MinLength(5)
+  @MaxLength(200)
+  titulo: string;
 
-  @IsOptional()
   @IsString()
-  description?: string
+  @MinLength(3)
+  @MaxLength(250)
+  slug: string;
+
+  @IsString()
+  @MinLength(20)
+  descripcionLarga: string;
 
   @IsDateString()
-  eventDate: string
+  fechaInicio: string;
+
+  @IsOptional()
+  @IsDateString()
+  fechaFin?: string;
 
   @IsOptional()
   @IsString()
-  @Length(3, 255)
-  location?: string
+  horaEncuentro?: string; // Formato: "18:30"
 
   @IsOptional()
   @IsString()
-  status?: string
+  horaSalida?: string; // Formato: "19:00"
+
+  @IsString()
+  @MaxLength(200)
+  destino: string;
 
   @IsOptional()
+  @IsString()
+  @MaxLength(300)
+  puntoEncuentro?: string;
+
+  @IsEnum(EventType)
+  tipoActividad: EventType;
+
+  @IsEnum(EventDifficulty)
+  dificultad: EventDifficulty;
+
+  @IsInt()
+  @Min(1)
+  duracionHoras: number;
+
+  @IsString()
+  @MaxLength(200)
+  organizador: string;
+
   @IsInt()
   @Min(0)
-  capacity?: number
+  kilometraje: number;
 
   @IsOptional()
-  @IsString()
-  imageUrl?: string
+  @IsUrl()
+  linkTerminos?: string;
+
+  @IsEnum(EventStatus)
+  estado: EventStatus;
+
+  @IsOptional()
+  @IsUrl()
+  imagenUrl?: string;
 }

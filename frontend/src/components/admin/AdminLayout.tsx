@@ -1,4 +1,7 @@
-import React, { useEffect } from 'react'
+          <Link to="/admin/ranking" className="block py-2 px-4 rounded hover:bg-gray-700">
+            Ranking Asistencia
+          </Link>
+import { useEffect } from 'react'
 import { Link, Outlet, useNavigate } from 'react-router-dom'
 import { useAuthStore } from '@/store/auth'
 
@@ -38,6 +41,9 @@ export default function AdminLayout() {
           </Link>
           <Link to="/admin/gallery" className="block py-2 px-4 rounded hover:bg-gray-700">
             Galería
+          </Link>
+          <Link to="/admin/projects" className="block py-2 px-4 rounded hover:bg-gray-700">
+            Proyectos Destacados
           </Link>
           <Link to="/admin/reports" className="block py-2 px-4 rounded hover:bg-gray-700">
             Reportes

@@ -79,7 +79,9 @@ export class BlobService implements OnModuleInit {
   private async ensureContainer(): Promise<void> {
     try {
       const containerClient = this.blobServiceClient!.getContainerClient(this.containerName);
-      await containerClient.createIfNotExists({ access: 'blob' });
+      // No solicitar acceso público: el Storage tiene allowBlobPublicAccess=false.
+      // Crear el contenedor sólo si no existe, sin cambiar ACLs.
+      await containerClient.createIfNotExists();
       this.logger.log(`Contenedor '${this.containerName}' verificado/creado.`);
     } catch (error: any) {
       this.logger.error(`BlobService: error asegurando contenedor -> ${error.message}`);
