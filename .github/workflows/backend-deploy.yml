@@ -51,9 +51,6 @@ jobs:
     permissions:
       id-token: write
       contents: read
-    environment:
-      name: production
-      url: https://lama-backend-dev0001.azurewebsites.net
     steps:
       - name: Download artifact
         uses: actions/download-artifact@v4
