@@ -1,0 +1,101 @@
+name: Backend Deploy
+
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - 'backend/**'
+      - '.github/workflows/backend-deploy.yml'
+  workflow_dispatch:
+
+jobs:
+  build:
+    name: Build backend (NestJS)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: backend/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build
+        run: npm run build
+
+      - name: Package for deployment
+        run: |
+          mkdir -p ../deploy-package
+          cp -r dist package.json package-lock.json .deployment ../deploy-package/
+        shell: bash
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: backend-package
+          path: deploy-package
+
+  deploy:
+    name: Deploy to Azure Web App
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
+    environment:
+      name: production
+      url: https://lama-backend-dev0001.azurewebsites.net
+    steps:
+      - name: Download artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: backend-package
+          path: ./backend-deploy
+
+      - name: Azure Login (OIDC)
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Configure Web App startup
+        run: |
+          az webapp config set \
+            --resource-group lama-rg-dev01 \
+            --name lama-backend-dev0001 \
+            --startup-file "node dist/main.js"
+
+      - name: Deploy to Web App
+        run: |
+          cd backend-deploy
+          zip -r ../backend.zip .
+          cd ..
+          az webapp deploy \
+            --resource-group lama-rg-dev01 \
+            --name lama-backend-dev0001 \
+            --src-path backend.zip \
+            --type zip \
+            --restart true
+
+      - name: Verify deployment
+        run: |
+          echo "Waiting for app to start..."
+          sleep 30
+          curl -f https://lama-backend-dev0001.azurewebsites.net/health || echo "Health check failed - check logs"
+
+# Comentarios:
+# - Build se hace en job separado con cache de npm
+# - Deploy usa azure/login con OIDC (federated credentials) - sin secretos hardcodeados
+# - Incluye .deployment para deshabilitar Oryx build remoto
+# - Configura startup-file explícitamente a "node dist/main.js"
+# - Solo se ejecuta cuando hay cambios en backend/ o en este workflow
