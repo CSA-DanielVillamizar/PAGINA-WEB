@@ -1,5 +1,5 @@
 import { Module } from '@nestjs/common'
-// Se elimina TypeOrmModule.forRootAsync para evitar bloqueo en el arranque.
+import { TypeOrmModule } from '@nestjs/typeorm'
 import { ConfigModule } from '@nestjs/config'
 import { AuthModule } from './modules/auth/auth.module'
 import { UsersModule } from './modules/users/users.module'
@@ -19,19 +19,62 @@ import { AdminModule } from './modules/admin/admin.module'
 import { DiagnosticsModule } from './modules/diagnostics/diagnostics.module'
 import { InscriptionsModule } from './modules/inscriptions/inscriptions.module'
 import { ProjectsModule } from './modules/projects/projects.module'
+import AppDataSource from './data-source'
+
+/**
+ * Normaliza el usuario de conexión eliminando el sufijo '@servidor' si existe.
+ */
+function normalizeUser(u?: string) {
+  if (!u) return 'pgadmin'
+  return u.includes('@') ? u.split('@')[0] : u
+}
 
 @Module({
   imports: [
     ConfigModule.forRoot({ isGlobal: true }),
-    // Configuración de TypeORM con tolerancia a fallos y reintentos.
-    // Si se establece DISABLE_DB=1 en las variables de entorno, se omite la conexión
-    // para permitir que la aplicación arranque y exponga endpoints básicos.
-    // MÓDULOS BÁSICOS: El arranque nunca debe bloquearse por la base de datos.
-    // Los módulos que dependen de repositorios se habilitarán cuando se reintroduzca TypeOrmModule.
+    // TypeORM con configuración resiliente: tolerancia a fallos, reintentos, y modo condicional.
+    // Si DISABLE_DB=1, se omite la conexión (la app arranca sin DB).
+    TypeOrmModule.forRoot({
+      type: 'postgres',
+      host: process.env.DB_HOST,
+      port: parseInt(process.env.DB_PORT || '5432'),
+      username: normalizeUser(process.env.DB_USER),
+      password: process.env.DB_PASS || process.env.DB_PASSWORD,
+      database: process.env.DB_NAME,
+      ssl: (process.env.NODE_ENV === 'production' || process.env.DB_SSL === '1')
+        ? { rejectUnauthorized: false }
+        : false,
+      connectTimeoutMS: 15000,
+      extra: {
+        connectionTimeoutMillis: 15000,
+        query_timeout: 30000,
+        statement_timeout: 30000,
+      },
+      entities: AppDataSource.options.entities,
+      synchronize: false,
+      logging: false,
+      autoLoadEntities: false,
+    }),
+    // MÓDULOS BÁSICOS sin dependencia de DB
     HealthModule,
     DiagnosticsModule,
     InscriptionsModule,
+    // MÓDULOS CON DB
     ProjectsModule, // CRUD proyectos destacados (solo junta)
+    AuthModule,
+    UsersModule,
+    RolesModule,
+    MembersModule,
+    VehiclesModule,
+    EventsModule,
+    SouvenirsModule,
+    NewsModule,
+    DonationsModule,
+    SubscriptionsModule,
+    GalleryModule,
+    FormsModule,
+    ReportsModule,
+    AdminModule,
   ],
 })
 export class AppModule {}
