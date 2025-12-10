@@ -106,14 +106,30 @@ jobs:
           fi
 
       - name: Verify deployment
+        id: health_check
         run: |
           echo "Waiting for app to start..."
           sleep 45
-          curl -f https://lama-backend-dev0001.azurewebsites.net/health || echo "Health check failed - check logs"
+          if curl -f https://lama-backend-dev0001.azurewebsites.net/health; then
+            echo "health_ok=true" >> $GITHUB_OUTPUT
+          else
+            echo "Health check failed - check logs"
+            echo "health_ok=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Run database migrations
+        if: steps.health_check.outputs.health_ok == 'true'
+        run: |
+          echo "Health check OK. Running migrations via Kudu..."
+          az webapp ssh \
+            --resource-group lama-rg-dev01 \
+            --name lama-backend-dev0001 \
+            --command "cd /home/site/wwwroot && npm run migrate" || echo "Migration failed - check logs"
 
 # Comentarios:
 # - Build se hace en job separado con cache de npm
 # - Deploy usa azure/login con OIDC (federated credentials) - sin secretos hardcodeados
 # - Incluye .deployment para deshabilitar Oryx build remoto
 # - Configura startup-file explícitamente a "node dist/main.js"
+# - Ejecuta migraciones automáticamente después de verificar que /health responde OK
 # - Solo se ejecuta cuando hay cambios en backend/ o en este workflow
